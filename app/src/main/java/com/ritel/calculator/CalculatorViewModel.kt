@@ -1,0 +1,173 @@
+package com.ritel.calculator
+
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.lifecycle.ViewModel
+import java.math.BigDecimal
+import java.math.MathContext
+
+data class CalculatorUiState(
+    val leftNumber: String? = null,
+    val currentNumber: String? = null,
+    val operator: Operator? = null,
+    val readOnly: Boolean = false,
+    val isError: Boolean = false,
+    val operatorTrigger: Int = 0
+)
+
+class CalculatorViewModel : ViewModel() {
+    var state by mutableStateOf(CalculatorUiState())
+        private set
+    val errorText = "Error"
+    val mathContext: MathContext = MathContext.DECIMAL128
+
+    fun getButtonEnabled(action: ButtonAction): Boolean {
+        return when (action) {
+            is Dot -> state.currentNumber?.contains('.') != true
+            is Operator -> !state.isError
+            is Delete -> state.currentNumber != null
+            is Function -> state.currentNumber != null && !state.isError // exclude Delete
+            is Equals -> !state.isError && !state.readOnly && state.leftNumber != null
+            else -> true
+        }
+    }
+
+    fun onAction(action: ButtonAction) {
+        when (action) {
+            is Numeric -> enterDigit(action.symbol)
+            is Dot -> enterDot()
+            is Operator -> handleOperatorAction(action)
+            is Function -> handleFunctionAction(action)
+            is Clear -> reset()
+            is Equals -> handleEquals()
+        }
+    }
+
+    private fun reset() {
+        state = CalculatorUiState()
+    }
+
+    private fun enterDigit(symbol: String) {
+        if (state.readOnly) reset()
+        state = state.copy(
+            currentNumber = state.currentNumber?.takeIf { it != "0" }?.plus(symbol) ?: symbol
+        )
+    }
+
+    private fun enterDot() {
+        if (state.readOnly) reset()
+        state = state.copy(currentNumber = state.currentNumber.takeIf { it?.contains('.') == true }
+            ?: ((state.currentNumber ?: "0") + "."))
+    }
+
+    private fun handleOperatorAction(action: Operator) {
+        if (state.isError) return
+
+        if (state.readOnly) state = state.copy(readOnly = false)
+
+        val (newLeft, newCurrent, newOperator) = when {
+            state.leftNumber == null && state.currentNumber == null -> Triple(
+                "0", null, action
+            )
+
+            state.leftNumber == null -> Triple(
+                state.currentNumber, null, action
+            )
+
+            state.currentNumber == null -> Triple(
+                state.leftNumber, null, action
+            )
+
+            else -> {
+                val result = calculate(
+                    state.leftNumber, state.currentNumber, state.operator
+                )
+                if (result == errorText) {
+                    state = state.copy(isError = true, readOnly = true)
+                    Triple(
+                        null, errorText, null
+                    )
+                } else Triple(
+                    result, null, action
+                )
+            }
+        }
+
+        state = state.copy(
+            leftNumber = newLeft,
+            currentNumber = newCurrent,
+            operator = newOperator,
+            operatorTrigger = state.operatorTrigger + 1
+        )
+    }
+
+    private fun handleFunctionAction(action: Function) {
+        when (action) {
+            is PlusMinus -> {
+                state.currentNumber?.let {
+                    if (it != "0") {
+                        state = state.copy(
+                            currentNumber = if (it.startsWith("-")) {
+                            it.removePrefix("-").ifEmpty { null }
+                        } else {
+                            "-$it"
+                        })
+                    }
+                }
+            }
+
+            is Percent -> {
+                state = state.copy(
+                    currentNumber = state.currentNumber?.toBigDecimalOrNull()?.divide(
+                        BigDecimal.valueOf(100), mathContext
+                    )?.stripTrailingZeros()?.toString()
+                )
+            }
+
+            is Delete -> {
+                when {
+                    state.readOnly || state.isError -> reset()
+
+                    state.currentNumber == null -> {
+                        state = state.copy(
+                            operator = null, currentNumber = state.leftNumber, leftNumber = null
+                        )
+                    }
+
+                    else -> state = state.copy(
+                        currentNumber = state.currentNumber!!.dropLast(1).ifEmpty { null })
+                }
+            }
+        }
+    }
+
+    private fun handleEquals() {
+        val result = calculate(state.leftNumber, state.currentNumber, state.operator)
+        if (result == errorText) state = state.copy(isError = true)
+
+        state = state.copy(
+            currentNumber = result, leftNumber = null, operator = null, readOnly = true
+        )
+    }
+
+    private fun calculate(
+        leftNumber: String?, rightNumber: String?, operator: Operator?
+    ): String? {
+        val numL = leftNumber?.toBigDecimalOrNull() ?: return rightNumber
+        val numR = rightNumber?.toBigDecimalOrNull() ?: return leftNumber
+        return operator?.let {
+            when (it) {
+                Add -> numL.add(numR, mathContext)
+                Subtract -> numL.subtract(numR, mathContext)
+                Multiply -> numL.multiply(numR, mathContext)
+                Divide -> {
+                    if (numR == BigDecimal.ZERO) {
+                        return errorText
+                    }
+                    numL.divide(numR, mathContext)
+                }
+            }?.stripTrailingZeros()?.toPlainString()
+        }
+    }
+}

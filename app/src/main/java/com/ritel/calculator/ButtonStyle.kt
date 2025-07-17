@@ -1,0 +1,111 @@
+package com.ritel.calculator
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+
+data class StyleConfig(
+    val color: Color,
+    val onColor: Color,
+    val staticShape: Shape = CircleShape,
+    val morphShape: (@Composable (Float) -> MorphPolygonShape) = { percentage ->
+        circleToQuadMorphShape(percentage)
+    },
+)
+
+@Composable
+fun getButtonStyle(action: ButtonAction): StyleConfig {
+    return when (action) {
+        is Numeric -> StyleConfig(
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            onColor = MaterialTheme.colorScheme.onSecondaryContainer
+        )
+
+        is Dot -> StyleConfig(
+            color = MaterialTheme.colorScheme.secondaryContainer,
+            onColor = MaterialTheme.colorScheme.onSecondaryContainer
+        )
+
+        is Operator -> StyleConfig(
+            color = MaterialTheme.colorScheme.primary,
+            onColor = MaterialTheme.colorScheme.onPrimary,
+            morphShape = { percentage ->
+                quadToHexMorphShape(percentage)
+            })
+
+        is Function -> StyleConfig(
+            color = MaterialTheme.colorScheme.tertiaryContainer,
+            onColor = MaterialTheme.colorScheme.onTertiaryContainer
+        )
+
+        is Clear -> StyleConfig(
+            color = MaterialTheme.colorScheme.error,
+            onColor = MaterialTheme.colorScheme.onError,
+            morphShape = { percentage ->
+                hexToOctMorphShape(percentage)
+            })
+
+        is Equals -> StyleConfig(
+            color = MaterialTheme.colorScheme.tertiary,
+            onColor = MaterialTheme.colorScheme.onTertiary,
+            morphShape = { percentage ->
+                octToHexMorphShape(percentage)
+            })
+    }
+}
+
+@Preview
+@Composable
+fun ButtonConfigPreview() {
+    Column {
+        Row {
+            PreviewButton(Numeric(1))
+            PreviewButton(Add)
+        }
+        Row {
+            PreviewButton(Percent)
+            PreviewButton(Clear)
+        }
+        Row {
+            PreviewButton(Equals)
+            PreviewButton(Dot)
+        }
+    }
+}
+
+@Composable
+fun PreviewButton(action: ButtonAction) {
+    val style = getButtonStyle(action)
+    MorphButton(
+        morphShape = style.morphShape,
+        onClick = { },
+        modifier = Modifier.size(128.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = style.color, contentColor = style.onColor
+        ),
+        contentPadding = PaddingValues(12.dp),
+    ) {
+        Text(
+            modifier = Modifier.wrapContentSize(),
+            text = action.symbol,
+            fontSize = 40.sp,
+            fontWeight = FontWeight.Light,
+            textAlign = TextAlign.Center
+        )
+    }
+}
