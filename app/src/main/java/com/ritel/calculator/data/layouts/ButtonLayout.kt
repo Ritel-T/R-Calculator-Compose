@@ -1,4 +1,4 @@
-package com.ritel.calculator
+package com.ritel.calculator.data.layouts
 
 import android.annotation.SuppressLint
 import android.os.Build
@@ -21,6 +21,20 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.times
+import com.ritel.calculator.ui.components.MorphButton
+import com.ritel.calculator.data.model.Add
+import com.ritel.calculator.data.model.ButtonAction
+import com.ritel.calculator.data.model.Clear
+import com.ritel.calculator.data.model.Delete
+import com.ritel.calculator.data.model.Divide
+import com.ritel.calculator.data.model.Dot
+import com.ritel.calculator.data.model.Equals
+import com.ritel.calculator.data.model.Multiply
+import com.ritel.calculator.data.model.Numeric
+import com.ritel.calculator.data.model.Percent
+import com.ritel.calculator.data.model.PlusMinus
+import com.ritel.calculator.data.model.Subtract
+import com.ritel.calculator.ui.components.getButtonStyle
 
 val buttonActions = listOf(
     listOf(Clear, PlusMinus, Percent, Divide),

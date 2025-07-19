@@ -1,4 +1,4 @@
-package com.ritel.calculator
+package com.ritel.calculator.ui.components
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -18,6 +18,19 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.ritel.calculator.data.model.Add
+import com.ritel.calculator.data.model.ButtonAction
+import com.ritel.calculator.data.model.Clear
+import com.ritel.calculator.data.model.Dot
+import com.ritel.calculator.data.model.Equals
+import com.ritel.calculator.data.model.Function
+import com.ritel.calculator.data.model.Numeric
+import com.ritel.calculator.data.model.Operator
+import com.ritel.calculator.data.model.Percent
+import com.ritel.calculator.data.model.circleToQuadMorphShape
+import com.ritel.calculator.data.model.hexToOctMorphShape
+import com.ritel.calculator.data.model.octToHexMorphShape
+import com.ritel.calculator.data.model.quadToHexMorphShape
 
 data class StyleConfig(
     val color: Color,

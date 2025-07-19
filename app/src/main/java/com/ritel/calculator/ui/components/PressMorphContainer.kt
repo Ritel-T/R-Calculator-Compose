@@ -1,4 +1,4 @@
-package com.ritel.calculator
+package com.ritel.calculator.ui.components
 
 import android.util.Log
 import androidx.compose.animation.core.animateFloatAsState

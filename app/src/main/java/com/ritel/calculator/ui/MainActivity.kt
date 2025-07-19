@@ -1,4 +1,4 @@
-package com.ritel.calculator
+package com.ritel.calculator.ui
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -28,6 +28,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.ritel.calculator.ui.scientific.ScientificScreen
+import com.ritel.calculator.ui.simple.SimpleScreen
 import com.ritel.calculator.ui.theme.CalculatorTheme
 
 class MainActivity : ComponentActivity() {

@@ -1,4 +1,4 @@
-package com.ritel.calculator
+package com.ritel.calculator.data.model
 
 sealed interface ButtonAction {
     val symbol: String

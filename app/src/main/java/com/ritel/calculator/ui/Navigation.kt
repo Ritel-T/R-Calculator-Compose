@@ -1,4 +1,4 @@
-package com.ritel.calculator
+package com.ritel.calculator.ui
 
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Calculate

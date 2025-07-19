@@ -1,4 +1,4 @@
-package com.ritel.calculator
+package com.ritel.calculator.data.model
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Column
@@ -17,6 +17,7 @@ import androidx.graphics.shapes.Morph
 import androidx.graphics.shapes.RoundedPolygon
 import androidx.graphics.shapes.star
 import androidx.graphics.shapes.toPath
+import com.ritel.calculator.ui.components.MorphPolygonShape
 import kotlin.math.abs
 
 private const val biggerRatio = 1.15f

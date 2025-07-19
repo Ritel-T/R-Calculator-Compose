@@ -1,4 +1,4 @@
-package com.ritel.calculator
+package com.ritel.calculator.ui.simple
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.ContentTransform
@@ -57,6 +57,10 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.ritel.calculator.data.layouts.ButtonGrid
+import com.ritel.calculator.data.model.Add
+import com.ritel.calculator.data.model.Operator
+import com.ritel.calculator.data.model.Subtract
 
 @Composable
 fun SimpleScreen(modifier: Modifier = Modifier, viewModel: CalculatorViewModel = viewModel()) {

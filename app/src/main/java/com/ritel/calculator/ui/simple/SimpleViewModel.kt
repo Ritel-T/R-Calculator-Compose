@@ -1,9 +1,23 @@
-package com.ritel.calculator
+package com.ritel.calculator.ui.simple
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
+import com.ritel.calculator.data.model.Add
+import com.ritel.calculator.data.model.ButtonAction
+import com.ritel.calculator.data.model.Clear
+import com.ritel.calculator.data.model.Delete
+import com.ritel.calculator.data.model.Divide
+import com.ritel.calculator.data.model.Dot
+import com.ritel.calculator.data.model.Equals
+import com.ritel.calculator.data.model.Function
+import com.ritel.calculator.data.model.Multiply
+import com.ritel.calculator.data.model.Numeric
+import com.ritel.calculator.data.model.Operator
+import com.ritel.calculator.data.model.Percent
+import com.ritel.calculator.data.model.PlusMinus
+import com.ritel.calculator.data.model.Subtract
 import java.math.BigDecimal
 import java.math.MathContext
 
