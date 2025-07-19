@@ -58,19 +58,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ritel.calculator.data.layouts.ButtonGrid
+import com.ritel.calculator.data.layouts.SimpleLayout
 import com.ritel.calculator.data.model.Add
 import com.ritel.calculator.data.model.Operator
 import com.ritel.calculator.data.model.Subtract
 
 @Composable
-fun SimpleScreen(modifier: Modifier = Modifier, viewModel: CalculatorViewModel = viewModel()) {
+fun SimpleScreen(modifier: Modifier = Modifier, viewModel: SimpleViewModel = viewModel()) {
     val uiState = viewModel.state
     Column(
         modifier = modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Bottom
     ) {
-        SimpleFormulaDisplay(
+        SimpleExpressionDisplay(
             leftNumber = uiState.leftNumber,
             operator = uiState.operator,
             operatorTrigger = uiState.operatorTrigger,
@@ -96,9 +97,10 @@ fun SimpleScreen(modifier: Modifier = Modifier, viewModel: CalculatorViewModel =
             }
         )
         ButtonGrid(
+            buttonLayout = SimpleLayout,
             getButtonEnabled = viewModel::getButtonEnabled,
             modifier = Modifier.fillMaxWidth(),
-            onClick = viewModel::onAction
+            onClick = viewModel::onButtonClicked
         )
     }
 }
@@ -110,7 +112,7 @@ fun SimpleScreenPreview() {
 }
 
 @Composable
-fun SimpleFormulaDisplay(
+fun SimpleExpressionDisplay(
     leftNumber: String?, operator: Operator?, operatorTrigger: Int, modifier: Modifier = Modifier
 ) {
     val height = 32.dp
@@ -233,7 +235,7 @@ fun SimpleFormulaDisplayPreview() {
                 Text(if (long) "Short" else "Long")
             }
         }
-        SimpleFormulaDisplay(leftNumber, operator, operatorTrigger, Modifier.fillMaxWidth())
+        SimpleExpressionDisplay(leftNumber, operator, operatorTrigger, Modifier.fillMaxWidth())
     }
 }
 

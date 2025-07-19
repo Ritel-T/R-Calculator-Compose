@@ -5,23 +5,23 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.ritel.calculator.data.model.Add
-import com.ritel.calculator.data.model.ButtonAction
 import com.ritel.calculator.data.model.Clear
 import com.ritel.calculator.data.model.Delete
 import com.ritel.calculator.data.model.Divide
 import com.ritel.calculator.data.model.Dot
 import com.ritel.calculator.data.model.Equals
-import com.ritel.calculator.data.model.Function
 import com.ritel.calculator.data.model.Multiply
 import com.ritel.calculator.data.model.Numeric
 import com.ritel.calculator.data.model.Operator
 import com.ritel.calculator.data.model.Percent
 import com.ritel.calculator.data.model.PlusMinus
+import com.ritel.calculator.data.model.SimpleButton
+import com.ritel.calculator.data.model.SimpleFunction
 import com.ritel.calculator.data.model.Subtract
 import java.math.BigDecimal
 import java.math.MathContext
 
-data class CalculatorUiState(
+data class SimpleUiState(
     val leftNumber: String? = null,
     val currentNumber: String? = null,
     val operator: Operator? = null,
@@ -30,36 +30,37 @@ data class CalculatorUiState(
     val operatorTrigger: Int = 0
 )
 
-class CalculatorViewModel : ViewModel() {
-    var state by mutableStateOf(CalculatorUiState())
+class SimpleViewModel : ViewModel() {
+    var state by mutableStateOf(SimpleUiState())
         private set
-    val errorText = "Error"
-    val mathContext: MathContext = MathContext.DECIMAL128
+    private val errorText = "Error"
+    private val mathContext: MathContext = MathContext.DECIMAL128
 
-    fun getButtonEnabled(action: ButtonAction): Boolean {
+    fun getButtonEnabled(action: SimpleButton): Boolean {
         return when (action) {
             is Dot -> state.currentNumber?.contains('.') != true
             is Operator -> !state.isError
-            is Delete -> state.currentNumber != null
-            is Function -> state.currentNumber != null && !state.isError // exclude Delete
+            is Delete -> state.currentNumber != null || state.leftNumber != null
+            is SimpleFunction -> state.currentNumber != null && !state.isError // exclude Delete
             is Equals -> !state.isError && !state.readOnly && state.leftNumber != null
             else -> true
         }
     }
 
-    fun onAction(action: ButtonAction) {
-        when (action) {
-            is Numeric -> enterDigit(action.symbol)
+    fun onButtonClicked(button: SimpleButton) {
+        when (button) {
+            is Numeric -> enterDigit(button.symbol)
             is Dot -> enterDot()
-            is Operator -> handleOperatorAction(action)
-            is Function -> handleFunctionAction(action)
+            is Delete -> handleDelete()
+            is Operator -> handleOperatorAction(button)
+            is SimpleFunction -> handleFunctionAction(button)
             is Clear -> reset()
             is Equals -> handleEquals()
         }
     }
 
     private fun reset() {
-        state = CalculatorUiState()
+        state = SimpleUiState()
     }
 
     private fun enterDigit(symbol: String) {
@@ -73,6 +74,21 @@ class CalculatorViewModel : ViewModel() {
         if (state.readOnly) reset()
         state = state.copy(currentNumber = state.currentNumber.takeIf { it?.contains('.') == true }
             ?: ((state.currentNumber ?: "0") + "."))
+    }
+
+    private fun handleDelete() {
+        when {
+            state.readOnly || state.isError -> reset()
+
+            state.currentNumber == null -> {
+                state = state.copy(
+                    operator = null, currentNumber = state.leftNumber, leftNumber = null
+                )
+            }
+
+            else -> state = state.copy(
+                currentNumber = state.currentNumber!!.dropLast(1).ifEmpty { null })
+        }
     }
 
     private fun handleOperatorAction(action: Operator) {
@@ -116,7 +132,7 @@ class CalculatorViewModel : ViewModel() {
         )
     }
 
-    private fun handleFunctionAction(action: Function) {
+    private fun handleFunctionAction(action: SimpleFunction) {
         when (action) {
             is PlusMinus -> {
                 state.currentNumber?.let {
@@ -137,21 +153,6 @@ class CalculatorViewModel : ViewModel() {
                         BigDecimal.valueOf(100), mathContext
                     )?.stripTrailingZeros()?.toString()
                 )
-            }
-
-            is Delete -> {
-                when {
-                    state.readOnly || state.isError -> reset()
-
-                    state.currentNumber == null -> {
-                        state = state.copy(
-                            operator = null, currentNumber = state.leftNumber, leftNumber = null
-                        )
-                    }
-
-                    else -> state = state.copy(
-                        currentNumber = state.currentNumber!!.dropLast(1).ifEmpty { null })
-                }
             }
         }
     }

@@ -19,14 +19,17 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.ritel.calculator.data.model.Add
-import com.ritel.calculator.data.model.ButtonAction
+import com.ritel.calculator.data.model.CalculatorButton
 import com.ritel.calculator.data.model.Clear
+import com.ritel.calculator.data.model.Delete
 import com.ritel.calculator.data.model.Dot
 import com.ritel.calculator.data.model.Equals
-import com.ritel.calculator.data.model.Function
 import com.ritel.calculator.data.model.Numeric
 import com.ritel.calculator.data.model.Operator
 import com.ritel.calculator.data.model.Percent
+import com.ritel.calculator.data.model.ScientificFunction
+import com.ritel.calculator.data.model.SimpleButton
+import com.ritel.calculator.data.model.SimpleFunction
 import com.ritel.calculator.data.model.circleToQuadMorphShape
 import com.ritel.calculator.data.model.hexToOctMorphShape
 import com.ritel.calculator.data.model.octToHexMorphShape
@@ -42,8 +45,8 @@ data class StyleConfig(
 )
 
 @Composable
-fun getButtonStyle(action: ButtonAction): StyleConfig {
-    return when (action) {
+fun getButtonStyle(button: CalculatorButton): StyleConfig {
+    return when (button) {
         is Numeric -> StyleConfig(
             color = MaterialTheme.colorScheme.secondaryContainer,
             onColor = MaterialTheme.colorScheme.onSecondaryContainer
@@ -54,6 +57,11 @@ fun getButtonStyle(action: ButtonAction): StyleConfig {
             onColor = MaterialTheme.colorScheme.onSecondaryContainer
         )
 
+        is Delete -> StyleConfig(
+            color = MaterialTheme.colorScheme.tertiaryContainer,
+            onColor = MaterialTheme.colorScheme.onTertiaryContainer
+        )
+
         is Operator -> StyleConfig(
             color = MaterialTheme.colorScheme.primary,
             onColor = MaterialTheme.colorScheme.onPrimary,
@@ -61,7 +69,12 @@ fun getButtonStyle(action: ButtonAction): StyleConfig {
                 quadToHexMorphShape(percentage)
             })
 
-        is Function -> StyleConfig(
+        is SimpleFunction -> StyleConfig(
+            color = MaterialTheme.colorScheme.tertiaryContainer,
+            onColor = MaterialTheme.colorScheme.onTertiaryContainer
+        )
+
+        is ScientificFunction -> StyleConfig(
             color = MaterialTheme.colorScheme.tertiaryContainer,
             onColor = MaterialTheme.colorScheme.onTertiaryContainer
         )
@@ -102,7 +115,7 @@ fun ButtonConfigPreview() {
 }
 
 @Composable
-fun PreviewButton(action: ButtonAction) {
+fun PreviewButton(action: SimpleButton) {
     val style = getButtonStyle(action)
     MorphButton(
         morphShape = style.morphShape,

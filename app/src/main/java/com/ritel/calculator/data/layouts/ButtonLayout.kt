@@ -21,60 +21,106 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.times
-import com.ritel.calculator.ui.components.MorphButton
 import com.ritel.calculator.data.model.Add
-import com.ritel.calculator.data.model.ButtonAction
+import com.ritel.calculator.data.model.Alternate
+import com.ritel.calculator.data.model.CalculatorButton
 import com.ritel.calculator.data.model.Clear
+import com.ritel.calculator.data.model.CommonLog
+import com.ritel.calculator.data.model.Cosine
+import com.ritel.calculator.data.model.CubeRoot
+import com.ritel.calculator.data.model.Degrees
 import com.ritel.calculator.data.model.Delete
 import com.ritel.calculator.data.model.Divide
 import com.ritel.calculator.data.model.Dot
 import com.ritel.calculator.data.model.Equals
+import com.ritel.calculator.data.model.EulersNumber
+import com.ritel.calculator.data.model.Factorial
+import com.ritel.calculator.data.model.LeftArrow
+import com.ritel.calculator.data.model.LeftParen
 import com.ritel.calculator.data.model.Multiply
+import com.ritel.calculator.data.model.NaturalLog
 import com.ritel.calculator.data.model.Numeric
 import com.ritel.calculator.data.model.Percent
+import com.ritel.calculator.data.model.Pi
 import com.ritel.calculator.data.model.PlusMinus
+import com.ritel.calculator.data.model.Power
+import com.ritel.calculator.data.model.RightArrow
+import com.ritel.calculator.data.model.RightParen
+import com.ritel.calculator.data.model.ScientificButton
+import com.ritel.calculator.data.model.SimpleButton
+import com.ritel.calculator.data.model.Sine
+import com.ritel.calculator.data.model.SquareRoot
 import com.ritel.calculator.data.model.Subtract
+import com.ritel.calculator.data.model.Tangent
+import com.ritel.calculator.ui.components.MorphButton
 import com.ritel.calculator.ui.components.getButtonStyle
 
-val buttonActions = listOf(
-    listOf(Clear, PlusMinus, Percent, Divide),
-    listOf(Numeric(7), Numeric(8), Numeric(9), Multiply),
-    listOf(Numeric(4), Numeric(5), Numeric(6), Subtract),
-    listOf(Numeric(1), Numeric(2), Numeric(3), Add),
-    listOf(Numeric(0), Dot, Delete, Equals)
+sealed class ButtonLayout<T : CalculatorButton>(
+    val rows: Int, val cols: Int, val layout: List<List<T>>
+)
+
+object SimpleLayout : ButtonLayout<SimpleButton>(
+    5, 4, listOf(
+        listOf(Clear, PlusMinus, Percent, Divide),
+        listOf(Numeric(7), Numeric(8), Numeric(9), Multiply),
+        listOf(Numeric(4), Numeric(5), Numeric(6), Subtract),
+        listOf(Numeric(1), Numeric(2), Numeric(3), Add),
+        listOf(Dot, Numeric(0), Delete, Equals)
+    )
+)
+
+object ScientificLayout : ButtonLayout<ScientificButton>(
+    6, 5, listOf(
+        // TODO: add alternative buttons
+        listOf(Clear,      Alternate, LeftArrow, RightArrow, Degrees),
+        listOf(Pi,         EulersNumber,      Sine,             Cosine,            Tangent),
+        listOf(NaturalLog, Factorial,         LeftParen,        RightParen,        Divide),
+        listOf(CommonLog,  Numeric(7), Numeric(8), Numeric(9), Multiply),
+        listOf(Power,      Numeric(4), Numeric(5), Numeric(6), Subtract),
+        listOf(SquareRoot, Numeric(1), Numeric(2), Numeric(3), Add),
+        listOf(CubeRoot,   Dot,              Numeric(0),  Delete,           Equals)
+    )
 )
 
 @Composable
 @SuppressLint("UnusedBoxWithConstraintsScope")
-fun ButtonGrid(
-    getButtonEnabled: (ButtonAction) -> Boolean,
+fun <T : CalculatorButton> ButtonGrid(
+    buttonLayout: ButtonLayout<T>,
+    getButtonEnabled: (T) -> Boolean,
     modifier: Modifier = Modifier,
-    onClick: (ButtonAction) -> Unit
+    onClick: (T) -> Unit
 ) {
-    val space = (-16).dp
-    val colNumber = 4
-    val fontSizeFactor = 0.45f
+    val cols = buttonLayout.cols
+    val (rowSpace, colSpace) = when (buttonLayout) {
+        SimpleLayout -> (-16).dp to (-16).dp
+        ScientificLayout -> (-10).dp to (-12).dp
+    }
+    val (aspectRatio, fontSizeFactor) = when (buttonLayout) {
+        SimpleLayout -> 1f to 0.45f
+        ScientificLayout -> 1.1f to 0.35f
+    }
 
     BoxWithConstraints(modifier = modifier) {
-        val buttonSize = (maxWidth + (colNumber - 1) * space) / colNumber
+        val buttonSize = (maxWidth + (cols - 1) * rowSpace) / cols
         val fontSize = (buttonSize.value * fontSizeFactor).sp
 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(space)
+            verticalArrangement = Arrangement.spacedBy(rowSpace)
         ) {
-            buttonActions.forEach { row ->
+            buttonLayout.layout.forEach { row ->
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(space),
+                    horizontalArrangement = Arrangement.spacedBy(colSpace),
                 ) {
-                    row.forEach { action ->
+                    row.forEach { button ->
                         CalculatorButton(
-                            action = action,
-                            enabled = getButtonEnabled(action),
-                            fontSize = fontSize,
-                            modifier = Modifier.weight(1f)
-                        ) { onClick(action) }
+                            button = button,
+                            enabled = getButtonEnabled(button),
+                            modifier = Modifier.weight(1f),
+                            aspectRatio = aspectRatio,
+                            fontSize = fontSize
+                        ) { onClick(button) }
                     }
                 }
             }
@@ -84,18 +130,19 @@ fun ButtonGrid(
 
 @Composable
 fun CalculatorButton(
-    action: ButtonAction,
+    button: CalculatorButton,
     enabled: Boolean,
-    fontSize: TextUnit,
     modifier: Modifier = Modifier,
+    aspectRatio: Float = 1f,
+    fontSize: TextUnit = 32.sp,
     onClick: () -> Unit
 ) {
     val view = LocalView.current
 
-    val style = getButtonStyle(action)
+    val style = getButtonStyle(button)
     MorphButton(
         morphShape = style.morphShape,
-        modifier = modifier.aspectRatio(1f),
+        modifier = modifier.aspectRatio(aspectRatio),
         enabled = enabled,
         colors = ButtonDefaults.buttonColors(
             containerColor = style.color, contentColor = style.onColor
@@ -103,7 +150,7 @@ fun CalculatorButton(
         contentPadding = PaddingValues(16.dp),
         onClick = {
             view.performHapticFeedback(
-                if (action is Clear || action is Equals) {
+                if (button is Clear || button is Equals) {
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                         HapticFeedbackConstants.REJECT
                     } else {
@@ -117,7 +164,7 @@ fun CalculatorButton(
         }) {
         Text(
             modifier = Modifier.wrapContentSize(),
-            text = action.symbol,
+            text = button.symbol,
             fontSize = fontSize,
             fontWeight = FontWeight.Light
         )
