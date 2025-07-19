@@ -59,14 +59,14 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
-fun CalculatorScreen(modifier: Modifier = Modifier, viewModel: CalculatorViewModel = viewModel()) {
+fun SimpleScreen(modifier: Modifier = Modifier, viewModel: CalculatorViewModel = viewModel()) {
     val uiState = viewModel.state
     Column(
-        modifier = modifier,
+        modifier = modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Bottom
     ) {
-        FormulaDisplay(
+        SimpleFormulaDisplay(
             leftNumber = uiState.leftNumber,
             operator = uiState.operator,
             operatorTrigger = uiState.operatorTrigger,
@@ -74,7 +74,7 @@ fun CalculatorScreen(modifier: Modifier = Modifier, viewModel: CalculatorViewMod
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 10.dp),
         )
-        CurrentNumberDisplay(
+        SimpleCurrentNumberDisplay(
             currentNumber = uiState.currentNumber,
             modifier = Modifier
                 .fillMaxWidth()
@@ -101,12 +101,12 @@ fun CalculatorScreen(modifier: Modifier = Modifier, viewModel: CalculatorViewMod
 
 @Preview(showBackground = true)
 @Composable
-fun CalculatorScreenPreview() {
-    CalculatorScreen()
+fun SimpleScreenPreview() {
+    SimpleScreen()
 }
 
 @Composable
-fun FormulaDisplay(
+fun SimpleFormulaDisplay(
     leftNumber: String?, operator: Operator?, operatorTrigger: Int, modifier: Modifier = Modifier
 ) {
     val height = 32.dp
@@ -195,7 +195,7 @@ fun FormulaDisplay(
 
 @Preview
 @Composable
-fun AnimatedFormulaDisplayPreview() {
+fun SimpleFormulaDisplayPreview() {
     var show by remember { mutableStateOf(true) }
     var long by remember { mutableStateOf(false) }
 
@@ -229,12 +229,12 @@ fun AnimatedFormulaDisplayPreview() {
                 Text(if (long) "Short" else "Long")
             }
         }
-        FormulaDisplay(leftNumber, operator, operatorTrigger, Modifier.fillMaxWidth())
+        SimpleFormulaDisplay(leftNumber, operator, operatorTrigger, Modifier.fillMaxWidth())
     }
 }
 
 @Composable
-fun CurrentNumberDisplay(
+fun SimpleCurrentNumberDisplay(
     currentNumber: String?,
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.primaryContainer,
@@ -299,16 +299,16 @@ fun CurrentNumberDisplay(
 
 @Preview(showBackground = true)
 @Composable
-fun CurrentNumberDisplayPreview() {
+fun SimpleCurrentNumberDisplayPreview() {
     Column {
-        CurrentNumberDisplay("3.1415926535898", Modifier.fillMaxWidth())
-        CurrentNumberDisplay(
+        SimpleCurrentNumberDisplay("3.1415926535898", Modifier.fillMaxWidth())
+        SimpleCurrentNumberDisplay(
             "3.141592653589793238462643383279502884197169",
             Modifier.fillMaxWidth(),
             color = MaterialTheme.colorScheme.secondary,
             contentColor = MaterialTheme.colorScheme.onSecondary
         )
-        CurrentNumberDisplay(
+        SimpleCurrentNumberDisplay(
             "Error",
             Modifier.fillMaxWidth(),
             color = MaterialTheme.colorScheme.errorContainer,
