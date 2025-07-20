@@ -57,6 +57,8 @@ dependencies {
 
     implementation(libs.androidx.graphics.shapes.android)
 
+    implementation(libs.big.math)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

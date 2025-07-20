@@ -21,7 +21,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ritel.calculator.data.layouts.ButtonGrid
-import com.ritel.calculator.data.layouts.ScientificLayout
+import com.ritel.calculator.data.layouts.ScientificLayoutAlternative
+import com.ritel.calculator.data.layouts.ScientificLayoutDefault
 
 @Composable
 fun ScientificScreen(modifier: Modifier = Modifier, viewModel: ScientificViewModel = viewModel()) {
@@ -45,7 +46,8 @@ fun ScientificScreen(modifier: Modifier = Modifier, viewModel: ScientificViewMod
                 .padding(bottom = 16.dp)
         )
         ButtonGrid(
-            buttonLayout = ScientificLayout,
+            buttonLayout = if (uiState.altLayout) ScientificLayoutAlternative
+            else ScientificLayoutDefault,
             getButtonEnabled = viewModel::getButtonEnabled,
             modifier = Modifier.fillMaxWidth(),
             onClick = viewModel::onButtonClicked

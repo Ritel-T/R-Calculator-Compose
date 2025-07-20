@@ -129,6 +129,10 @@ data object Degrees : ScientificFunction {
     override val symbol = "°"
 }
 
+data object RadToDeg : ScientificFunction {
+    override val symbol = "rad→°"
+}
+
 data object LeftArrow : ScientificFunction {
     override val symbol = "←"
 }

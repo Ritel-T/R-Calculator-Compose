@@ -34,7 +34,7 @@ class SimpleViewModel : ViewModel() {
     var state by mutableStateOf(SimpleUiState())
         private set
     private val errorText = "Error"
-    private val mathContext: MathContext = MathContext.DECIMAL128
+    private val mathContext = MathContext.DECIMAL128
 
     fun getButtonEnabled(action: SimpleButton): Boolean {
         return when (action) {

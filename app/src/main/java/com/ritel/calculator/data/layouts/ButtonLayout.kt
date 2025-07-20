@@ -23,6 +23,9 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.times
 import com.ritel.calculator.data.model.Add
 import com.ritel.calculator.data.model.Alternate
+import com.ritel.calculator.data.model.ArcCosine
+import com.ritel.calculator.data.model.ArcSine
+import com.ritel.calculator.data.model.ArcTangent
 import com.ritel.calculator.data.model.CalculatorButton
 import com.ritel.calculator.data.model.Clear
 import com.ritel.calculator.data.model.CommonLog
@@ -44,6 +47,7 @@ import com.ritel.calculator.data.model.Percent
 import com.ritel.calculator.data.model.Pi
 import com.ritel.calculator.data.model.PlusMinus
 import com.ritel.calculator.data.model.Power
+import com.ritel.calculator.data.model.RadToDeg
 import com.ritel.calculator.data.model.RightArrow
 import com.ritel.calculator.data.model.RightParen
 import com.ritel.calculator.data.model.ScientificButton
@@ -69,18 +73,32 @@ object SimpleLayout : ButtonLayout<SimpleButton>(
     )
 )
 
-object ScientificLayout : ButtonLayout<ScientificButton>(
+sealed class ScientificLayout(rows: Int, cols: Int, layout: List<List<ScientificButton>>) :
+    ButtonLayout<ScientificButton>(rows, cols, layout)
+
+object ScientificLayoutDefault : ScientificLayout(
     6, 5, listOf(
-        // TODO: add alternative buttons
-        listOf(Clear,      Alternate, LeftArrow, RightArrow, Degrees),
-        listOf(Pi,         EulersNumber,      Sine,             Cosine,            Tangent),
-        listOf(NaturalLog, Factorial,         LeftParen,        RightParen,        Divide),
-        listOf(CommonLog,  Numeric(7), Numeric(8), Numeric(9), Multiply),
-        listOf(Power,      Numeric(4), Numeric(5), Numeric(6), Subtract),
-        listOf(SquareRoot, Numeric(1), Numeric(2), Numeric(3), Add),
-        listOf(CubeRoot,   Dot,              Numeric(0),  Delete,           Equals)
+        listOf(Clear,     LeftParen,           RightParen,          LeftArrow,      RightArrow,
+            Degrees
+        ),
+        listOf(Alternate,    Sine,              Cosine,            Tangent,          Divide),
+        listOf(Pi,           Numeric(7), Numeric(8), Numeric(9), Multiply),
+        listOf(CommonLog,    Numeric(4), Numeric(5), Numeric(6), Subtract),
+        listOf(Power,        Numeric(1), Numeric(2),  Numeric(3), Add),
+        listOf(SquareRoot,   Dot,              Numeric(0),  Delete,           Equals)
     )
 )
+object ScientificLayoutAlternative : ScientificLayout(
+    6, 5, listOf(
+        listOf(Clear,        LeftParen,        RightParen,        LeftArrow,        RightArrow, RadToDeg   ),
+        listOf(Alternate,    ArcSine,          ArcCosine,         ArcTangent,          Divide),
+        listOf(EulersNumber, Numeric(7), Numeric(8), Numeric(9), Multiply),
+        listOf(NaturalLog,   Numeric(4), Numeric(5), Numeric(6), Subtract),
+        listOf(Factorial,    Numeric(1), Numeric(2), Numeric(3), Add),
+        listOf(CubeRoot,     Dot,              Numeric(0),  Delete,           Equals)
+    )
+)
+
 
 @Composable
 @SuppressLint("UnusedBoxWithConstraintsScope")
@@ -91,13 +109,13 @@ fun <T : CalculatorButton> ButtonGrid(
     onClick: (T) -> Unit
 ) {
     val cols = buttonLayout.cols
-    val (rowSpace, colSpace) = when (buttonLayout) {
-        SimpleLayout -> (-16).dp to (-16).dp
-        ScientificLayout -> (-10).dp to (-12).dp
-    }
     val (aspectRatio, fontSizeFactor) = when (buttonLayout) {
-        SimpleLayout -> 1f to 0.45f
-        ScientificLayout -> 1.1f to 0.35f
+        is SimpleLayout -> 1f to 0.45f
+        is ScientificLayout -> 1f to 0.35f
+    }
+    val (rowSpace, colSpace) = when (buttonLayout) {
+        is SimpleLayout -> (-16).dp to (-16).dp
+        is ScientificLayout -> (-12).dp to (-12).dp
     }
 
     BoxWithConstraints(modifier = modifier) {
