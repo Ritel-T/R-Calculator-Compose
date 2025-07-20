@@ -6,313 +6,264 @@ import java.math.MathContext
 import java.util.Stack
 
 /**
- * 一个用于解析和计算数学表达式的工具对象。
+ * A robust evaluator for mathematical expressions provided as a sequence of strings.
  *
- * 支持的操作:
- * - 基础运算: +, -, *, ×, /, ÷
- * - 函数: sin, cos, tan, asin, acos, atan, √ (sqrt), ∛ (cbrt), lg (log10), ln (log), abs (||)
- * - 常量: π, e
- * - 运算符: ^ (幂), ! (阶乘)
- * - 单位: ° (度), rad→° (弧度转度)
+ * This class implements a two-stage process:
+ * 1.  **Infix to Postfix Conversion**: It first preprocesses the input sequence to handle
+ * implied multiplication and unary operators. Then, it uses a modified Shunting-yard
+ * algorithm to convert the user-friendly infix expression into a computer-friendly
+ * postfix (Reverse Polish Notation) expression.
+ * 2.  **Postfix Evaluation**: It evaluates the postfix expression to compute the final result.
  *
- * 特性:
- * - 隐式乘法: 例如 2π, 3sin(45), (1+2)(3+4)
- * - 函数可不带括号: 例如 sin30, √4 (会运算紧随其后的一个数字)
- * - 精度: DECIMAL128 (约34位有效数字)
- * - 错误处理: 返回 Kotlin 的 Result 类型，封装成功或异常
+ * It uses BigDecimal for high-precision arithmetic, powered by the `big-math` library
+ * for advanced functions like roots, logarithms, and trigonometric operations.
+ *
+ * @property mathContext The precision context for all BigDecimal operations.
  */
-object ExpressionEvaluator {
-
-    // 1. 定义与设置
-    // ======================================================================================
-
+class ExpressionEvaluator {
     private val mathContext = MathContext.DECIMAL128
-    private val PI = BigDecimalMath.pi(mathContext)
-    private val E = BigDecimalMath.e(mathContext)
 
-    // 定义所有支持的词元(Token)类型
-    private sealed class Token
-    private data class NumberToken(val value: BigDecimal) : Token()
-    private data class OperatorToken(val symbol: String) : Token()
-    private data class FunctionToken(val name: String) : Token()
-    private object LeftParenToken : Token()
-    private object RightParenToken : Token()
-
-    // 定义运算符的属性：优先级和结合性
-    private data class OperatorInfo(val precedence: Int, val isRightAssociative: Boolean = false)
-
-    private val operators = mapOf(
-        "+" to OperatorInfo(1),
-        "-" to OperatorInfo(1),
-        "*" to OperatorInfo(2),
-        "×" to OperatorInfo(2),
-        "/" to OperatorInfo(2),
-        "÷" to OperatorInfo(2),
-        "·" to OperatorInfo(3), // 隐式乘法，优先级更高
-        "^" to OperatorInfo(4, isRightAssociative = true),
-        // 函数和一元操作符有更高的优先级
-        "neg" to OperatorInfo(5), // 一元负号
-        "!" to OperatorInfo(6),
-        "°" to OperatorInfo(6),
-        "rad→°" to OperatorInfo(6) // 后缀操作
-    )
+    //region Public API
 
     /**
-     * 公开的求值入口函数
-     * @param expressionString 输入的数学表达式字符串
-     * @return Result<BigDecimal> 成功时包含结果，失败时包含异常
+     * Evaluates a mathematical expression sequence.
+     *
+     * @param sequence The list of tokens (numbers, operators, functions) representing the expression.
+     * @return A [Result] containing the [BigDecimal] answer on success, or an [Exception] on failure.
      */
-    fun evaluate(expressionString: String): Result<BigDecimal> {
+    fun evaluate(sequence: List<String>): Result<BigDecimal> {
         return try {
-            // 步骤 1: 词法分析
-            val tokens = tokenize(expressionString)
-            // 步骤 2: 转换为 RPN
-            val rpn = toRPN(tokens)
-            // 步骤 3: 求值 RPN
-            val result = evaluateRPN(rpn)
-            Result.success(result)
+            if (sequence.isEmpty()) {
+                return Result.success(BigDecimal.ZERO)
+            }
+            // MODIFICATION: The call to validate() has been removed.
+            val preprocessed = preprocess(sequence)
+            val postfix = infixToPostfix(preprocessed)
+            val result = evaluatePostfix(postfix)
+            // Strip trailing zeros for a cleaner representation, but keep scale if non-zero
+            Result.success(result.stripTrailingZeros())
         } catch (e: Exception) {
-            // 捕获所有可能的错误，例如格式错误、除以零等
             Result.failure(e)
         }
     }
 
+    //endregion
 
-    // 2. 步骤一：词法分析 (Tokenization)
-    // ======================================================================================
+    //region Preprocessing
 
-    private fun tokenize(expr: String): List<Token> {
-        val tokens = mutableListOf<Token>()
-        var i = 0
-        val s = expr.replace(" ", "")
-            .replace("×", "*")
-            .replace("÷", "/")
+    /**
+     * Prepares the sequence for parsing by:
+     * 1. Distinguishing unary minus from binary subtraction.
+     * 2. Inserting an explicit operator for implied multiplication to enforce higher precedence.
+     */
+    private fun preprocess(sequence: List<String>): List<String> {
+        val result = mutableListOf<String>()
+        for (i in sequence.indices) {
+            val token = sequence[i]
+            val prevToken = result.lastOrNull()
 
-        while (i < s.length) {
-            val char = s[i]
-            val lastToken = tokens.lastOrNull()
-
-            // 检查是否需要插入隐式乘法
-            fun addImplicitMultiplication() {
-                if (lastToken is NumberToken || lastToken is RightParenToken || (lastToken is OperatorToken && setOf(
-                        "!", "°", "rad→°"
-                    ).contains(lastToken.symbol))
-                ) {
-                    tokens.add(OperatorToken("·"))
-                }
+            // Convert '-' to unary minus '_' where appropriate
+            if (token == "-" && (prevToken == null || prevToken in binaryOperators.keys || prevToken == "(")) {
+                result.add("_")
+                continue
             }
 
-            when {
-                // 数字 (例如: 123, 3.14, .5)
-                char.isDigit() || (char == '.' && i + 1 < s.length && s[i + 1].isDigit()) -> {
-                    addImplicitMultiplication()
-                    val start = i
-                    while (i < s.length && (s[i].isDigit() || s[i] == '.')) i++
-                    tokens.add(NumberToken(BigDecimal(s.substring(start, i))))
-                }
-
-                // 字母或特殊符号开头的函数/常量
-                char.isLetter() || char in "√∛πe|" -> {
-                    // 解析连续的字母或特殊符号
-                    val start = i
-                    i++
-                    while (i < s.length && (s[i].isLetter() || (s.substring(
-                            start, i
-                        ) == "rad" && "→°".startsWith(s[i])))
-                    ) i++
-                    val name = s.substring(start, i)
-
-                    when (name) {
-                        "π" -> {
-                            addImplicitMultiplication(); tokens.add(NumberToken(PI))
-                        }
-
-                        "e" -> {
-                            addImplicitMultiplication(); tokens.add(NumberToken(E))
-                        }
-
-                        "sin", "cos", "tan", "asin", "acos", "atan", "lg", "ln", "√", "∛" -> {
-                            addImplicitMultiplication()
-                            tokens.add(FunctionToken(name))
-                            // 处理 sin30, √4 这类不带括号的情况
-                            if (i >= s.length || s[i] != '(') {
-                                tokens.add(LeftParenToken)
-                                val numberTokens = tokenize(s.substring(i)) // 递归解析后面的数字
-                                val firstNumber = numberTokens.firstOrNull()
-                                if (firstNumber is NumberToken) {
-                                    tokens.add(firstNumber)
-                                    i += firstNumber.value.toPlainString().length
-                                } else {
-                                    throw IllegalArgumentException("函数 '$name' 后必须紧跟数字或括号表达式")
-                                }
-                                tokens.add(RightParenToken)
-                            }
-                        }
-
-                        "rad→°" -> tokens.add(OperatorToken("rad→°")) // 作为后缀操作符
-                        "|" -> { // 处理绝对值
-                            if (lastToken is NumberToken || lastToken is RightParenToken) {
-                                // 当作右括号
-                                tokens.add(RightParenToken)
-                            } else {
-                                // 当作 abs(
-                                addImplicitMultiplication()
-                                tokens.add(FunctionToken("abs"))
-                                tokens.add(LeftParenToken)
-                            }
-                        }
-
-                        else -> throw IllegalArgumentException("未知函数或常量: '$name'")
-                    }
-                }
-
-                // 括号
-                char == '(' -> {
-                    addImplicitMultiplication(); tokens.add(LeftParenToken); i++
-                }
-
-                char == ')' -> {
-                    tokens.add(RightParenToken); i++
-                }
-
-                // 操作符
-                else -> {
-                    when (char) {
-                        '+', '*', '/', '^', '!' -> {
-                            tokens.add(OperatorToken(char.toString())); i++
-                        }
-
-                        '°' -> {
-                            tokens.add(OperatorToken("°")); i++
-                        } // 作为后缀操作符
-                        '-' -> {
-                            // 判断是一元负号还是二元减号
-                            if (lastToken == null || lastToken is LeftParenToken || lastToken is OperatorToken) {
-                                tokens.add(FunctionToken("neg")) // 一元负号
-                            } else {
-                                tokens.add(OperatorToken("-")) // 二元减法
-                            }
-                            i++
-                        }
-
-                        else -> throw IllegalArgumentException("非法字符: '$char'")
-                    }
-                }
+            // Insert implied multiplication operator 'i×'
+            if (prevToken != null && shouldInsertMultiplication(prevToken, token)) {
+                result.add("i×")
             }
+            result.add(token)
         }
-        return tokens
+        return result
     }
 
+    private fun shouldInsertMultiplication(prev: String, current: String): Boolean {
+        val prevIsFactor =
+            prev.isNumeric() || prev in constants || prev == ")" || prev in unaryPostfixOperators
+        val currentIsFactor =
+            current.isNumeric() || current in constants || current in unaryPrefixOperators || current == "("
+        val prevIsOperator = prev in allOperators || prev == "("
 
-    // 3. 步骤二：调度场算法 (Shunting-Yard)
-    // ======================================================================================
+        return prevIsFactor && currentIsFactor && !prevIsOperator
+    }
 
-    private fun toRPN(tokens: List<Token>): List<Token> {
-        val outputQueue = mutableListOf<Token>()
-        val operatorStack = Stack<Token>()
+    //endregion
+
+    //region Infix to Postfix Conversion (Shunting-Yard)
+
+    /**
+     * Converts the preprocessed infix token list to a postfix (RPN) list.
+     */
+    private fun infixToPostfix(tokens: List<String>): List<String> {
+        val output = mutableListOf<String>()
+        val ops = Stack<String>()
 
         for (token in tokens) {
-            when (token) {
-                is NumberToken -> outputQueue.add(token)
-                is FunctionToken -> operatorStack.push(token)
-                is OperatorToken -> {
-                    while (!operatorStack.isEmpty() && operatorStack.peek() !is LeftParenToken && ((operatorStack.peek() is FunctionToken) || (operatorStack.peek() as? OperatorToken)?.let { o2 ->
-                            val o1 = operators[token.symbol]!!
-                            val o2Info = operators[o2.symbol]!!
-                            (o2Info.precedence > o1.precedence) || (o2Info.precedence == o1.precedence && !o1.isRightAssociative)
-                        } == true)) {
-                        outputQueue.add(operatorStack.pop())
+            when {
+                token.isNumeric() || token in constants -> output.add(token)
+                token in unaryPrefixOperators -> ops.push(token)
+                token in unaryPostfixOperators -> output.add(token)
+                token in binaryOperators.keys -> {
+                    while (ops.isNotEmpty() && ops.peek() != "(" && hasHigherPrecedence(
+                            ops.peek(), token
+                        )
+                    ) {
+                        output.add(ops.pop())
                     }
-                    operatorStack.push(token)
+                    ops.push(token)
                 }
 
-                is LeftParenToken -> operatorStack.push(token)
-                is RightParenToken -> {
-                    while (!operatorStack.isEmpty() && operatorStack.peek() !is LeftParenToken) {
-                        outputQueue.add(operatorStack.pop())
+                token == "(" -> ops.push(token)
+                token == ")" -> {
+                    while (ops.isNotEmpty() && ops.peek() != "(") {
+                        output.add(ops.pop())
                     }
-                    if (operatorStack.isEmpty()) throw IllegalArgumentException("括号不匹配")
-                    operatorStack.pop() // 弹出 '('
+                    // This check correctly handles extra ')' by throwing an error if no matching '(' is on the stack.
+                    if (ops.isEmpty() || ops.pop() != "(") {
+                        throw IllegalArgumentException("括号不匹配 (Mismatched parentheses)")
+                    }
+                    if (ops.isNotEmpty() && ops.peek() in unaryPrefixOperators) {
+                        output.add(ops.pop())
+                    }
                 }
             }
         }
-        while (!operatorStack.isEmpty()) {
-            val op = operatorStack.pop()
-            if (op is LeftParenToken) throw IllegalArgumentException("括号不匹配")
-            outputQueue.add(op)
+
+        while (ops.isNotEmpty()) {
+            val op = ops.pop()
+            // If an unmatched parenthesis is left on the stack, it implies an unclosed group at the end of the expression.
+            // We can safely ignore it to allow for omitted closing parentheses.
+            if (op != "(") {
+                output.add(op)
+            }
         }
-        return outputQueue
+
+        return output
     }
 
+    private fun hasHigherPrecedence(opOnStack: String, currentOp: String): Boolean {
+        val info1 = allOperators[opOnStack] ?: return false
+        val info2 = allOperators[currentOp] ?: return false
+        return (info1.precedence > info2.precedence) || (info1.precedence == info2.precedence && !info1.isRightAssociative)
+    }
 
-    // 4. 步骤三：RPN 求值 (Evaluation)
-    // ======================================================================================
+    //endregion
 
-    private fun evaluateRPN(rpnTokens: List<Token>): BigDecimal {
+    //region Postfix Evaluation (No changes in this section)
+
+    /**
+     * Evaluates the postfix (RPN) token list.
+     */
+    private fun evaluatePostfix(tokens: List<String>): BigDecimal {
         val stack = Stack<BigDecimal>()
 
-        for (token in rpnTokens) {
-            when (token) {
-                is NumberToken -> stack.push(token.value)
-                is OperatorToken -> {
-                    // 后缀操作符 (一元)
-                    if (setOf("!", "°", "rad→°").contains(token.symbol)) {
-                        if (stack.isEmpty()) throw IllegalArgumentException("缺少操作数")
-                        val operand = stack.pop()
-                        val result = when (token.symbol) {
-                            "!" -> BigDecimalMath.factorial(operand.intValueExact())
-                            "°" -> operand.multiply(PI, mathContext)
-                                .divide(BigDecimal(180), mathContext)
+        for (token in tokens) {
+            when {
+                token.isNumeric() -> stack.push(BigDecimal(token))
+                token in constants -> stack.push(constants.getValue(token))
+                token in allOperators.keys -> {
+                    val info = allOperators.getValue(token)
+                    if (stack.size < info.arity) throw IllegalArgumentException("表达式无效，运算符 '$token' 缺少操作数 (Invalid expression. Operator '$token' needs ${info.arity} operand(s)).")
 
-                            "rad→°" -> operand.multiply(BigDecimal(180), mathContext)
-                                .divide(PI, mathContext)
-
-                            else -> throw IllegalStateException()
-                        }
-                        stack.push(result)
-                    } else { // 双元操作符
-                        if (stack.size < 2) throw IllegalArgumentException("缺少操作数")
-                        val b = stack.pop()
-                        val a = stack.pop()
-                        val result = when (token.symbol) {
-                            "+" -> a.add(b, mathContext)
-                            "-" -> a.subtract(b, mathContext)
-                            "*" -> a.multiply(b, mathContext)
-                            "·" -> a.multiply(b, mathContext) // 隐式乘法
-                            "/" -> a.divide(b, mathContext)
-                            "^" -> BigDecimalMath.pow(a, b, mathContext)
-                            else -> throw IllegalArgumentException("未知运算符: ${token.symbol}")
-                        }
-                        stack.push(result)
-                    }
-                }
-
-                is FunctionToken -> {
-                    if (stack.isEmpty()) throw IllegalArgumentException("函数 '${token.name}' 缺少参数")
-                    val operand = stack.pop()
-                    val result = when (token.name) {
-                        "sin" -> BigDecimalMath.sin(operand, mathContext)
-                        "cos" -> BigDecimalMath.cos(operand, mathContext)
-                        "tan" -> BigDecimalMath.tan(operand, mathContext)
-                        "asin" -> BigDecimalMath.asin(operand, mathContext)
-                        "acos" -> BigDecimalMath.acos(operand, mathContext)
-                        "atan" -> BigDecimalMath.atan(operand, mathContext)
-                        "lg" -> BigDecimalMath.log10(operand, mathContext)
-                        "log" -> BigDecimalMath.log(operand, mathContext)
-                        "√" -> BigDecimalMath.sqrt(operand, mathContext)
-                        "∛" -> BigDecimalMath.root(operand, 3.toBigDecimal(), mathContext)
-                        "neg" -> operand.negate()
-                        "abs" -> operand.abs()
-                        else -> throw IllegalArgumentException("未知函数: ${token.name}")
-                    }
+                    val operands = List(info.arity) { stack.pop() }.reversed()
+                    val result = executeOperation(token, operands)
                     stack.push(result)
                 }
 
-                else -> throw IllegalStateException("RPN队列中存在非法Token")
+                else -> throw IllegalArgumentException("表达式中存在未知符号 (Unknown token in expression): $token")
             }
         }
 
-        if (stack.size != 1) throw IllegalArgumentException("表达式格式错误，最终栈中数量不为1")
+        if (stack.size != 1) throw IllegalArgumentException("表达式无效或不完整 (The expression is invalid or incomplete).")
         return stack.pop()
     }
+
+    private fun executeOperation(op: String, operands: List<BigDecimal>): BigDecimal {
+        return when (op) {
+            // Binary
+            "+" -> operands[0].add(operands[1], mathContext)
+            "-" -> operands[0].subtract(operands[1], mathContext)
+            "×", "i×" -> operands[0].multiply(operands[1], mathContext)
+            "÷" -> {
+                if (operands[1].compareTo(BigDecimal.ZERO) == 0) throw ArithmeticException("除数不能为零 (Division by zero).")
+                operands[0].divide(operands[1], mathContext)
+            }
+
+            "^" -> BigDecimalMath.pow(operands[0], operands[1], mathContext)
+            // Unary Prefix
+            "_" -> operands[0].negate()
+            "√" -> BigDecimalMath.sqrt(operands[0], mathContext)
+            "∛" -> BigDecimalMath.root(operands[0], BigDecimal(3), mathContext)
+            "lg" -> BigDecimalMath.log10(operands[0], mathContext)
+            "ln" -> BigDecimalMath.log(operands[0], mathContext)
+            "sin" -> BigDecimalMath.sin(operands[0], mathContext)
+            "cos" -> BigDecimalMath.cos(operands[0], mathContext)
+            "tan" -> BigDecimalMath.tan(operands[0], mathContext)
+            "asin" -> BigDecimalMath.asin(operands[0], mathContext)
+            "acos" -> BigDecimalMath.acos(operands[0], mathContext)
+            "atan" -> BigDecimalMath.atan(operands[0], mathContext)
+            // Unary Postfix
+            "!" -> factorial(operands[0])
+            "°" -> BigDecimalMath.toRadians(operands[0], mathContext)
+            "rad>°" -> BigDecimalMath.toDegrees(operands[0], mathContext)
+            else -> throw IllegalArgumentException("未知运算符 (Unknown operator): $op")
+        }
+    }
+
+    //endregion
+
+    //region Math Helpers and Definitions (No changes in this section)
+
+    private fun String.isNumeric(): Boolean = toBigDecimalOrNull() != null
+
+    private fun factorial(n: BigDecimal): BigDecimal {
+        // Check if the number is a non-negative integer
+        if (n < BigDecimal.ZERO || n.scale() > 0 || n > BigDecimal(4000)) { // Limit to avoid performance issues/errors
+            throw ArithmeticException("阶乘仅支持非负整数 (Factorial is only defined for non-negative integers).")
+        }
+        var result = BigDecimal.ONE
+        var i = BigDecimal.ONE
+        while (i <= n) {
+            result = result.multiply(i, mathContext)
+            i = i.add(BigDecimal.ONE)
+        }
+        return result
+    }
+
+    private val PI by lazy { BigDecimalMath.pi(mathContext) }
+    private val E by lazy { BigDecimalMath.e(mathContext) }
+
+    private val constants = mapOf("π" to PI, "e" to E)
+
+    private data class OperatorInfo(
+        val precedence: Int, val isRightAssociative: Boolean, val arity: Int
+    )
+
+    private val binaryOperators = mapOf(
+        "+" to OperatorInfo(2, false, 2),
+        "-" to OperatorInfo(2, false, 2),
+        "×" to OperatorInfo(3, false, 2), // Explicit multiplication
+        "÷" to OperatorInfo(3, false, 2),
+        "i×" to OperatorInfo(7, false, 2), // Implied multiplication (higher precedence)
+        "^" to OperatorInfo(8, true, 2)
+    )
+
+    private val unaryPrefixOperators = setOf(
+        "_", "√", "∛", "lg", "ln", "sin", "cos", "tan", "asin", "acos", "atan"
+    )
+
+    private val unaryPostfixOperators = setOf(
+        "!", "°", "rad>°"
+    )
+
+    private val allOperators: Map<String, OperatorInfo> =
+        binaryOperators + unaryPrefixOperators.associateWith {
+            OperatorInfo(
+                6,
+                true,
+                1
+            )
+        } + unaryPostfixOperators.associateWith { OperatorInfo(7, false, 1) }
+
+    //endregion
 }

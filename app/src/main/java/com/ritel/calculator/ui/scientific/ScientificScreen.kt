@@ -39,7 +39,7 @@ fun ScientificScreen(modifier: Modifier = Modifier, viewModel: ScientificViewMod
                 .padding(horizontal = 16.dp, vertical = 12.dp)
         )
         ScientificInputField(
-            input = uiState.input,
+            sequence = uiState.sequence,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
@@ -63,7 +63,7 @@ fun ScientificScreenPreview() {
 
 @Composable
 fun ScientificExpressionDisplay(
-    expression: String?,
+    expression: List<String>,
     modifier: Modifier = Modifier,
 ) {
     val fontSize = 16.sp
@@ -87,19 +87,21 @@ fun ScientificExpressionDisplay(
                 .horizontalScroll(scrollState, reverseScrolling = true),
             horizontalArrangement = Arrangement.End
         ) {
-            Text(
-                modifier = Modifier.wrapContentSize(),
-                text = expression ?: "",
-                fontSize = fontSize,
-                maxLines = 1
-            )
+            expression.forEach { token ->
+                Text(
+                    modifier = Modifier.wrapContentSize(),
+                    text = token,
+                    fontSize = fontSize,
+                    maxLines = 1
+                )
+            }
         }
     }
 }
 
 @Composable
 fun ScientificInputField(
-    input: String?,
+    sequence: List<String>,
     modifier: Modifier = Modifier,
 ) {
     val fontSize = 32.sp
@@ -117,15 +119,17 @@ fun ScientificInputField(
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp)
                 .wrapContentHeight()
-                .horizontalScroll(scrollState, reverseScrolling = true),
+                .horizontalScroll(scrollState),
             horizontalArrangement = Arrangement.End
         ) {
-            Text(
-                modifier = Modifier.wrapContentSize(),
-                text = input ?: "",
-                fontSize = fontSize,
-                maxLines = 1
-            )
+            sequence.forEach { token ->
+                Text(
+                    modifier = Modifier.wrapContentSize(),
+                    text = token,
+                    fontSize = fontSize,
+                    maxLines = 1
+                )
+            }
         }
     }
 }

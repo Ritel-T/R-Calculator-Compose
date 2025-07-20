@@ -40,8 +40,8 @@ class SimpleViewModel : ViewModel() {
         return when (action) {
             is Dot -> state.currentNumber?.contains('.') != true
             is Operator -> !state.isError
+            is SimpleFunction -> state.currentNumber != null && !state.isError
             is Delete -> state.currentNumber != null || state.leftNumber != null
-            is SimpleFunction -> state.currentNumber != null && !state.isError // exclude Delete
             is Equals -> !state.isError && !state.readOnly && state.leftNumber != null
             else -> true
         }
@@ -51,9 +51,9 @@ class SimpleViewModel : ViewModel() {
         when (button) {
             is Numeric -> enterDigit(button.symbol)
             is Dot -> enterDot()
+            is Operator -> handleOperator(button)
+            is SimpleFunction -> handleFunction(button)
             is Delete -> handleDelete()
-            is Operator -> handleOperatorAction(button)
-            is SimpleFunction -> handleFunctionAction(button)
             is Clear -> reset()
             is Equals -> handleEquals()
         }
@@ -76,22 +76,7 @@ class SimpleViewModel : ViewModel() {
             ?: ((state.currentNumber ?: "0") + "."))
     }
 
-    private fun handleDelete() {
-        when {
-            state.readOnly || state.isError -> reset()
-
-            state.currentNumber == null -> {
-                state = state.copy(
-                    operator = null, currentNumber = state.leftNumber, leftNumber = null
-                )
-            }
-
-            else -> state = state.copy(
-                currentNumber = state.currentNumber!!.dropLast(1).ifEmpty { null })
-        }
-    }
-
-    private fun handleOperatorAction(action: Operator) {
+    private fun handleOperator(action: Operator) {
         if (state.isError) return
 
         if (state.readOnly) state = state.copy(readOnly = false)
@@ -132,7 +117,7 @@ class SimpleViewModel : ViewModel() {
         )
     }
 
-    private fun handleFunctionAction(action: SimpleFunction) {
+    private fun handleFunction(action: SimpleFunction) {
         when (action) {
             is PlusMinus -> {
                 state.currentNumber?.let {
@@ -154,6 +139,21 @@ class SimpleViewModel : ViewModel() {
                     )?.stripTrailingZeros()?.toString()
                 )
             }
+        }
+    }
+
+    private fun handleDelete() {
+        when {
+            state.readOnly || state.isError -> reset()
+
+            state.currentNumber == null -> {
+                state = state.copy(
+                    operator = null, currentNumber = state.leftNumber, leftNumber = null
+                )
+            }
+
+            else -> state = state.copy(
+                currentNumber = state.currentNumber!!.dropLast(1).ifEmpty { null })
         }
     }
 

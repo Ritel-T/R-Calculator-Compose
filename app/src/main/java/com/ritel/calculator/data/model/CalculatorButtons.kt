@@ -47,7 +47,6 @@ data object Divide : Operator {
 // interface Operator
 
 sealed interface SimpleFunction : SimpleButton
-sealed interface ScientificFunction : ScientificButton
 
 data object PlusMinus : SimpleFunction {
     override val symbol = "±"
@@ -56,6 +55,9 @@ data object PlusMinus : SimpleFunction {
 data object Percent : SimpleFunction {
     override val symbol = "%"
 }
+// interface SimpleFunction
+
+sealed interface ScientificFunction : ScientificButton
 
 data object LeftParen : ScientificFunction {
     override val symbol = "("
@@ -122,7 +124,7 @@ data object EulersNumber : ScientificFunction {
 }
 
 data object AbsoluteValue : ScientificFunction {
-    override val symbol = "|x|"
+    override val symbol = "|"
 }
 
 data object Degrees : ScientificFunction {
@@ -130,17 +132,21 @@ data object Degrees : ScientificFunction {
 }
 
 data object RadToDeg : ScientificFunction {
-    override val symbol = "rad→°"
+    override val symbol = "rad>°"
+}
+// interface ScientificFunction
+
+sealed interface SpecialButton : ScientificButton
+
+data object LeftArrow : SpecialButton {
+    override val symbol = "<"
 }
 
-data object LeftArrow : ScientificFunction {
-    override val symbol = "←"
+data object RightArrow : SpecialButton {
+    override val symbol = ">"
 }
 
-data object RightArrow : ScientificFunction {
-    override val symbol = "→"
-}
-
-data object Alternate : ScientificFunction {
+data object Alternate : SpecialButton {
     override val symbol = "Alt"
 }
+// interface SpecialButton

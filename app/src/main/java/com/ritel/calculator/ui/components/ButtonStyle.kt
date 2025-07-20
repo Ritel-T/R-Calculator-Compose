@@ -30,6 +30,7 @@ import com.ritel.calculator.data.model.Percent
 import com.ritel.calculator.data.model.ScientificFunction
 import com.ritel.calculator.data.model.SimpleButton
 import com.ritel.calculator.data.model.SimpleFunction
+import com.ritel.calculator.data.model.SpecialButton
 import com.ritel.calculator.data.model.circleToQuadMorphShape
 import com.ritel.calculator.data.model.hexToOctMorphShape
 import com.ritel.calculator.data.model.octToHexMorphShape
@@ -47,12 +48,7 @@ data class StyleConfig(
 @Composable
 fun getButtonStyle(button: CalculatorButton): StyleConfig {
     return when (button) {
-        is Numeric -> StyleConfig(
-            color = MaterialTheme.colorScheme.secondaryContainer,
-            onColor = MaterialTheme.colorScheme.onSecondaryContainer
-        )
-
-        is Dot -> StyleConfig(
+        is Numeric, is Dot -> StyleConfig(
             color = MaterialTheme.colorScheme.secondaryContainer,
             onColor = MaterialTheme.colorScheme.onSecondaryContainer
         )
@@ -92,6 +88,11 @@ fun getButtonStyle(button: CalculatorButton): StyleConfig {
             morphShape = { percentage ->
                 octToHexMorphShape(percentage)
             })
+
+        is SpecialButton -> StyleConfig(
+            color = MaterialTheme.colorScheme.secondary,
+            onColor = MaterialTheme.colorScheme.onSecondary
+        )
     }
 }
 
