@@ -111,6 +111,30 @@ data object ArcTangent : ScientificFunction {
     override val symbol = "atan"
 }
 
+data object HyperSine : ScientificFunction {
+    override val symbol = "sinh"
+}
+
+data object HyperCosine : ScientificFunction {
+    override val symbol = "cosh"
+}
+
+data object HyperTangent : ScientificFunction {
+    override val symbol = "tanh"
+}
+
+data object ArHyperSine : ScientificFunction {
+    override val symbol = "asinh"
+}
+
+data object ArHyperCosine : ScientificFunction {
+    override val symbol = "acosh"
+}
+
+data object ArHyperTangent : ScientificFunction {
+    override val symbol = "atanh"
+}
+
 data object Factorial : ScientificFunction {
     override val symbol = "!"
 }

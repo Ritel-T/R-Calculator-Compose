@@ -17,17 +17,14 @@ import com.ritel.calculator.data.model.RightArrow
 import com.ritel.calculator.data.model.ScientificButton
 import com.ritel.calculator.data.model.ScientificFunction
 
-data class ErrorState(
-    val trigger: Boolean = false, val pos: Int = 0
-)
-
 data class ScientificUiState(
     val sequence: List<String> = emptyList(),
-    val expression: List<String> = emptyList(),
+    val prevSeq: List<String> = emptyList(),
     val altLayout: Boolean = false,
-    val cursorPos: Int = 0,
+    val cursorIndex: Int = 0, // 0 at beginning, lastIndex+1 (=size) after first token
+    val selectedIndex: Int? = null, // starts from 0, null if no selection
     val resultMode: Boolean = false,
-    val errorState: ErrorState = ErrorState()
+    val errorTrigger: Int = 0
 )
 
 class ScientificViewModel : ViewModel() {
@@ -36,7 +33,19 @@ class ScientificViewModel : ViewModel() {
 
     private val evaluator = ExpressionEvaluator()
 
-    fun getButtonEnabled(@Suppress("unused") button: ScientificButton): Boolean = true
+    //region Public API
+
+    fun setCursorIndex(index: Int) {
+        state = state.copy(cursorIndex = index.coerceIn(0, state.sequence.size))
+    }
+
+    fun getButtonEnabled(button: ScientificButton): Boolean {
+        return when (button) {
+            is Delete, is Clear -> return state.sequence.isNotEmpty() || state.prevSeq.isNotEmpty()
+            is Equals -> return state.sequence.isNotEmpty() && !state.resultMode
+            else -> true
+        }
+    }
 
     fun onButtonClicked(button: ScientificButton) {
         when (button) {
@@ -50,9 +59,24 @@ class ScientificViewModel : ViewModel() {
             is RightArrow -> handleRightArrow()
         }
     }
+    //endregion
+
+    private val cursorIndexMod: Int
+        get() = state.sequence.size + 1
 
     private fun reset() {
         state = ScientificUiState()
+    }
+
+    private fun restorePrev(toRight: Boolean = false) {
+        if (state.prevSeq.isEmpty()) return
+
+        state = state.copy(
+            sequence = state.prevSeq,
+            prevSeq = emptyList(),
+            cursorIndex = if (toRight) state.prevSeq.size else 0,
+            resultMode = false
+        )
     }
 
     private fun handleAlternate() {
@@ -60,60 +84,93 @@ class ScientificViewModel : ViewModel() {
     }
 
     private fun handleLeftArrow() {
-        state = state.copy(cursorPos = maxOf(0, state.cursorPos - 1))
+        if (state.resultMode) {
+            restorePrev(true)
+            return
+        }
+        state =
+            state.copy(cursorIndex = ((state.cursorIndex - 1) + cursorIndexMod) % cursorIndexMod)
     }
 
     private fun handleRightArrow() {
-        state = state.copy(cursorPos = minOf(state.sequence.size, state.cursorPos + 1))
+        if (state.resultMode) {
+            restorePrev()
+            return
+        }
+        state = state.copy(cursorIndex = (state.cursorIndex + 1) % cursorIndexMod)
     }
 
     private fun handleNumericAndDot(symbol: String) {
+        if (state.resultMode) reset()
+
+        var leftIndex = state.cursorIndex - 1
+
         val newSequence = state.sequence.toMutableList().apply {
-            if (lastOrNull()?.toDoubleOrNull() != null) {
-                add(last() + symbol)
-                removeAt(lastIndex - 1)
-            } else {
-                add(symbol)
+            val left = getOrNull(leftIndex)
+
+            if (left?.toDoubleOrNull() != null) { // left is a number
+                set(leftIndex, left + symbol)
+            } else { // insert new number
+                leftIndex++
+                add(leftIndex, symbol)
             }
         }
-        state = state.copy(sequence = newSequence)
+
+        state = state.copy(sequence = newSequence, cursorIndex = leftIndex + 1)
     }
 
     private fun handleOperatorAndFunction(button: ScientificButton) {
+        val newSequence = state.sequence.toMutableList().apply {
+            add(state.cursorIndex, button.symbol)
+        }
         state = state.copy(
-            sequence = state.sequence + button.symbol
+            sequence = newSequence, cursorIndex = state.cursorIndex + 1, resultMode = false
         )
     }
 
     private fun handleDelete() {
-        val newSequence = state.sequence.toMutableList().apply {
-            if (isNotEmpty()) {
-                var lastItem = last()
-                if (lastItem.toDoubleOrNull() != null) { // is a number
-                    removeAt(lastIndex)
-                    lastItem = lastItem.dropLast(1)
-                    if (lastItem.isNotEmpty()) add(lastItem)
-                } else { // is an operator or function
-                    removeAt(lastIndex)
-                }
-            } else return
+        if (state.resultMode) {
+            restorePrev(true)
+            return
         }
-        state = state.copy(sequence = newSequence)
+        if (state.sequence.isEmpty()) return
+
+        var index = state.cursorIndex - 1
+
+        val newSequence = state.sequence.toMutableList().apply {
+            if (state.cursorIndex == 0) return@apply // no deletion at the beginning
+
+            val it = getOrNull(index)
+
+            if (it?.toDoubleOrNull() != null) { // it is a number
+                if (it.length > 1) {
+                    set(index, it.dropLast(1))
+                    index++
+                } else {
+                    removeAt(index)
+                }
+            } else { // it is not a number
+                removeAt(index)
+            }
+        }
+
+        state = state.copy(sequence = newSequence, cursorIndex = index)
     }
 
     private fun handleEquals() {
+        if (state.resultMode) return
+
         val result = evaluator.evaluate(state.sequence)
-        if (result.isSuccess) {
-            state = state.copy(
-                expression = state.sequence,
-                sequence = listOf(result.getOrNull()?.toPlainString() ?: ""),
+        state = if (result.isSuccess) {
+            state.copy(
+                sequence = listOf(result.value?.toPlainString() ?: ""),
+                prevSeq = result.sequence,
+                cursorIndex = 1,
                 resultMode = true
             )
         } else {
-            val error = result.exceptionOrNull()
-            state = state.copy(
-                errorState = ErrorState(trigger = true, pos = 0), // TODO: locate error position
-                resultMode = false
+            state.copy(
+                sequence = result.sequence, cursorIndex = 0, errorTrigger = state.errorTrigger + 1
             )
         }
     }
