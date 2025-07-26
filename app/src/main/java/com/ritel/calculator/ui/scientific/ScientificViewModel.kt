@@ -161,6 +161,7 @@ class ScientificViewModel : ViewModel() {
         if (state.resultMode) return
 
         val result = evaluator.evaluate(state.sequence)
+
         state = if (result.isSuccess) {
             state.copy(
                 sequence = listOf(result.value?.toPlainString() ?: ""),
@@ -170,7 +171,7 @@ class ScientificViewModel : ViewModel() {
             )
         } else {
             state.copy(
-                sequence = result.sequence, cursorIndex = 0, errorTrigger = state.errorTrigger + 1
+                cursorIndex = 0, errorTrigger = state.errorTrigger + 1
             )
         }
     }

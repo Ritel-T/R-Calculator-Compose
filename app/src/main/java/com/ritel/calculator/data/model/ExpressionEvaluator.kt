@@ -17,39 +17,40 @@ class ExpressionEvaluator {
     //region Public API
     fun evaluate(sequence: List<String>): EvaluationResult {
         if (sequence.isEmpty()) {
-            return EvaluationResult(
-                isSuccess = true,
-                sequence = emptyList(),
-                value = BigDecimal.ZERO // Return Zero for empty input
-            )
+            return EvaluationResult(isSuccess = false)
         }
 
         try {
-            // The order of preprocessing is crucial for correctness.
-            val parenthesizedSequence = autoParenthesizeFunctionArgs(sequence)
-            val correctedSequence = autoCorrectParentheses(parenthesizedSequence)
+            val parenthesizedSequence = parenthesizeFunctionArgs(sequence)
+            val correctedSequence = correctParentheses(parenthesizedSequence)
             val preprocessed = preprocess(correctedSequence)
             val postfix = infixToPostfix(preprocessed)
             val result = evaluatePostfix(postfix)
 
             return EvaluationResult(
                 isSuccess = true,
-                sequence = preprocessed, // Return the fully processed sequence for display
+                sequence = preprocessed.mapNotNull {
+                    when (it) {
+                        "i×" -> null
+                        "_" -> "-"
+                        "|open" -> "|"
+                        "|close" -> "|"
+                        else -> it
+                    }
+                },
                 value = result.stripTrailingZeros()
             )
         } catch (_: Exception) {
             // In case of any error, return a failure result. The message can be logged or displayed.
             // For simplicity, we don't pass the message, but the calling ViewModel could log e.message.
-            return EvaluationResult(
-                isSuccess = false, sequence = sequence // Return original sequence on failure
-            )
+            return EvaluationResult(isSuccess = false)
         }
     }
     //endregion
 
     //region Preprocessing, Correction, and Auto-Parenthesizing
 
-    private fun autoParenthesizeFunctionArgs(sequence: List<String>): List<String> {
+    private fun parenthesizeFunctionArgs(sequence: List<String>): List<String> {
         val result = mutableListOf<String>()
         var i = 0
         while (i < sequence.size) {
@@ -80,7 +81,7 @@ class ExpressionEvaluator {
         return result
     }
 
-    private fun autoCorrectParentheses(sequence: List<String>): List<String> {
+    private fun correctParentheses(sequence: List<String>): List<String> {
         val openParens = sequence.count { it == "(" }
         val closeParens = sequence.count { it == ")" }
         val balance = openParens - closeParens
@@ -216,7 +217,9 @@ class ExpressionEvaluator {
                 token in constants -> stack.push(constants.getValue(token))
                 token in allOperators.keys -> {
                     val info = allOperators.getValue(token)
-                    if (stack.size < info.arity) throw IllegalArgumentException("Invalid expression: Not enough operands for operator '$token'.")
+                    if (stack.size < info.arity) throw IllegalArgumentException(
+                        "Invalid expression: Not enough operands for operator '$token'."
+                    )
                     val operands = List(info.arity) { stack.pop() }.reversed()
                     val result = executeOperation(token, operands)
                     stack.push(result)
@@ -254,29 +257,22 @@ class ExpressionEvaluator {
             "∛" -> BigDecimalMath.root(operands[0], BigDecimal(3), mathContext)
             "lg" -> BigDecimalMath.log10(operands[0], mathContext)
             "ln" -> BigDecimalMath.log(operands[0], mathContext)
-            "sin", "cos", "tan" -> when (op) {
-                "sin" -> BigDecimalMath.sin(operands[0], mathContext)
-                "cos" -> BigDecimalMath.cos(operands[0], mathContext)
-                else -> BigDecimalMath.tan(operands[0], mathContext)
-            }
 
-            "asin", "acos", "atan" -> when (op) {
-                "asin" -> BigDecimalMath.asin(operands[0], mathContext)
-                "acos" -> BigDecimalMath.acos(operands[0], mathContext)
-                else -> BigDecimalMath.atan(operands[0], mathContext)
-            }
+            "sin" -> BigDecimalMath.sin(operands[0], mathContext)
+            "cos" -> BigDecimalMath.cos(operands[0], mathContext)
+            "tan" -> BigDecimalMath.tan(operands[0], mathContext)
 
-            "sinh", "cosh", "tanh" -> when (op) {
-                "sinh" -> BigDecimalMath.sinh(operands[0], mathContext)
-                "cosh" -> BigDecimalMath.cosh(operands[0], mathContext)
-                else -> BigDecimalMath.tanh(operands[0], mathContext)
-            }
+            "asin" -> BigDecimalMath.asin(operands[0], mathContext)
+            "acos" -> BigDecimalMath.acos(operands[0], mathContext)
+            "atan" -> BigDecimalMath.atan(operands[0], mathContext)
 
-            "asinh", "acosh", "atanh" -> when (op) {
-                "asinh" -> BigDecimalMath.asinh(operands[0], mathContext)
-                "acosh" -> BigDecimalMath.acosh(operands[0], mathContext)
-                else -> BigDecimalMath.atanh(operands[0], mathContext)
-            }
+            "sinh" -> BigDecimalMath.sinh(operands[0], mathContext)
+            "cosh" -> BigDecimalMath.cosh(operands[0], mathContext)
+            "tanh" -> BigDecimalMath.tanh(operands[0], mathContext)
+
+            "asinh" -> BigDecimalMath.asinh(operands[0], mathContext)
+            "acosh" -> BigDecimalMath.acosh(operands[0], mathContext)
+            "atanh" -> BigDecimalMath.atanh(operands[0], mathContext)
 
             // Unary Postfix
             "!" -> factorial(operands[0])
