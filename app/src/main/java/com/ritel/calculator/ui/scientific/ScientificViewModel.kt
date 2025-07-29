@@ -39,6 +39,10 @@ class ScientificViewModel : ViewModel() {
         state = state.copy(cursorIndex = index.coerceIn(0, state.sequence.size))
     }
 
+    fun onPrevSeqClicked() {
+        restorePrev()
+    }
+
     fun getButtonEnabled(button: ScientificButton): Boolean {
         return when (button) {
             is Delete, is Clear -> return state.sequence.isNotEmpty() || state.prevSeq.isNotEmpty()

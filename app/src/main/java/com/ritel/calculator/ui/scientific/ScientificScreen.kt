@@ -1,7 +1,9 @@
 package com.ritel.calculator.ui.scientific
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -52,13 +54,13 @@ fun ScientificScreen(modifier: Modifier = Modifier, viewModel: ScientificViewMod
     val uiState = viewModel.state
     Column(
         modifier = modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
+        horizontalAlignment = Alignment.End,
         verticalArrangement = Arrangement.Bottom
     ) {
         ScientificPreviousExpression(
             prevSeq = uiState.prevSeq,
+            onClick = viewModel::onPrevSeqClicked,
             modifier = Modifier
-                .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 12.dp)
                 .height(32.dp)
         )
@@ -66,6 +68,7 @@ fun ScientificScreen(modifier: Modifier = Modifier, viewModel: ScientificViewMod
             sequence = uiState.sequence,
             cursorIndex = uiState.cursorIndex,
             setCursorIndex = viewModel::setCursorIndex,
+            resultMode = uiState.resultMode,
             errorTrigger = uiState.errorTrigger,
             modifier = Modifier
                 .fillMaxWidth()
@@ -92,24 +95,26 @@ fun ScientificScreenPreview() {
 @Composable
 fun ScientificPreviousExpression(
     prevSeq: List<String>,
+    onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val fontSize = 16.sp
 
-    Surface(
-        modifier = modifier,
-        shape = MaterialTheme.shapes.large,
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-    ) {
-        SequenceDisplay(
-            sequence = prevSeq,
-            fontSize = fontSize,
-            modifier = Modifier
-                .padding(vertical = 2.dp)
-                .fillMaxSize()
-        )
-    }
+    if (prevSeq.isNotEmpty()) {
+        Surface(
+            modifier = modifier
+                .clip(MaterialTheme.shapes.large)
+                .clickable(onClick = onClick),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+        ) {
+            SequenceDisplay(
+                sequence = prevSeq,
+                fontSize = fontSize,
+                modifier = Modifier.padding(vertical = 2.dp)
+            )
+        }
+    } else Spacer(modifier)
 }
 
 @Preview
@@ -118,6 +123,7 @@ fun ScientificPreviousExpressionPreview() {
     val sequence = listOf("sin", "45", "°", "+", "12345")
     ScientificPreviousExpression(
         prevSeq = sequence,
+        onClick = {},
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp)
@@ -130,6 +136,7 @@ fun ScientificInputField(
     sequence: List<String>,
     cursorIndex: Int,
     setCursorIndex: (Int) -> Unit,
+    resultMode: Boolean,
     errorTrigger: Int,
     modifier: Modifier = Modifier,
 ) {
@@ -137,32 +144,51 @@ fun ScientificInputField(
 
     val offsetX = remember { Animatable(0f) }
 
+    val color = if (resultMode) {
+        MaterialTheme.colorScheme.secondary
+    } else {
+        MaterialTheme.colorScheme.primaryContainer
+    }
+    val contentColor = if (resultMode) {
+        MaterialTheme.colorScheme.onSecondary
+    } else {
+        MaterialTheme.colorScheme.onPrimaryContainer
+    }
+
+    val colorTweenSpec = tween<Color>(durationMillis = 400, easing = FastOutSlowInEasing)
+
+    val animatedColor by animateColorAsState(
+        targetValue = color, animationSpec = colorTweenSpec
+    )
+    val animatedContentColor by animateColorAsState(
+        targetValue = contentColor, animationSpec = colorTweenSpec
+    )
+
+
     LaunchedEffect(errorTrigger) {
-        // 震动动画序列
         offsetX.animateTo(
-            targetValue = 15f, // 初始冲击更大
-            animationSpec = tween(durationMillis = 50) // 极短的动画时间
+            targetValue = 10f,
+            animationSpec = tween(durationMillis = 50, easing = FastOutLinearInEasing)
         )
-        // 然后利用弹簧效果回弹到原位
         offsetX.animateTo(
-            targetValue = 0f,
-            animationSpec = spring(
-                dampingRatio = Spring.DampingRatioHighBouncy,
-                stiffness = Spring.StiffnessHigh
+            targetValue = 0f, animationSpec = spring(
+                dampingRatio = 0.1f, stiffness = Spring.StiffnessHigh
             )
         )
     }
 
     Surface(
-        modifier = modifier.offset(x = offsetX.value.dp),
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        modifier = modifier
+            .offset(x = offsetX.value.dp)
+            .clip(MaterialTheme.shapes.medium),
+        color = animatedColor,
+        contentColor = animatedContentColor
     ) {
         SequenceWithCursorDisplay(
             sequence = sequence,
             cursorIndex = cursorIndex,
             setCursorIndex = setCursorIndex,
+            resultMode = resultMode,
             fontSize = fontSize,
             modifier = Modifier
                 .padding(vertical = 4.dp)
@@ -179,7 +205,8 @@ fun ScientificInputFieldPreview() {
         sequence = sequence,
         cursorIndex = 1,
         setCursorIndex = {},
-        0,
+        resultMode = false,
+        errorTrigger = 0,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp)
@@ -198,7 +225,7 @@ fun SequenceDisplay(
     Row(
         modifier = modifier
             .horizontalScroll(scrollState)
-            .padding(horizontal = 8.dp),
+            .padding(horizontal = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(1.5.dp)
     ) {
@@ -219,6 +246,7 @@ fun SequenceWithCursorDisplay(
     sequence: List<String>,
     cursorIndex: Int,
     setCursorIndex: (Int) -> Unit,
+    resultMode: Boolean,
     fontSize: TextUnit,
     modifier: Modifier = Modifier
 ) {
@@ -226,11 +254,10 @@ fun SequenceWithCursorDisplay(
 
     val infiniteTransition = rememberInfiniteTransition(label = "cursorBlink")
     val cursorAlpha by infiniteTransition.animateFloat(
-        initialValue = 1f, // 从 1f 开始，让光标一开始就可见
-        targetValue = 0f,  // 动画到 0f
+        initialValue = 1f,
+        targetValue = 0f,
         animationSpec = infiniteRepeatable(
             animation = tween(durationMillis = 600, easing = FastOutLinearInEasing),
-            // 让动画可以反向播放，实现 1 -> 0 -> 1 的闪烁效果
             repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
         ), label = "cursorAlpha"
     )
@@ -242,7 +269,9 @@ fun SequenceWithCursorDisplay(
             .horizontalScroll(scrollState)
             .padding(horizontal = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy((-1).dp)
+        horizontalArrangement = Arrangement.spacedBy(
+            (-1).dp, if (resultMode) Alignment.End else Alignment.Start
+        )
     ) {
         sequence.forEachIndexed { index, text ->
 
@@ -252,16 +281,15 @@ fun SequenceWithCursorDisplay(
             Text(
                 text = text,
                 modifier = Modifier
+                    .clickable {
+                        setCursorIndex(index + 1)
+                    }
                     .clip(MaterialTheme.shapes.small)
                     .background(
-                        color = if (cursorIndex - 1 == index) MaterialTheme.colorScheme.primary.copy(
-                            alpha = 0.3f
-                        )
-                        else Color.Transparent
+                        color = if (cursorIndex - 1 == index && !resultMode) {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+                        } else Color.Transparent
                     )
-                    .clickable {
-                        setCursorIndex(index)
-                    }
                     .padding(horizontal = 4.dp)
                     .padding(bottom = 4.dp)
                     .wrapContentSize(),
@@ -271,7 +299,7 @@ fun SequenceWithCursorDisplay(
             )
         }
 
-        if (cursorIndex == sequence.size) Cursor(cursorAlpha, cursorSize)
+        if (cursorIndex == sequence.size && !resultMode) Cursor(cursorAlpha, cursorSize)
         else Spacer(Modifier.size(cursorSize))
     }
 }

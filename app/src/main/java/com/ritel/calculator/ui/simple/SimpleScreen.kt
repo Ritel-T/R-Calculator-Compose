@@ -5,6 +5,7 @@ import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
@@ -253,7 +254,7 @@ fun SimpleCurrentNumberDisplay(
     val scrollState = rememberScrollState()
 
     val scrollTweenSpec = tween<Float>(durationMillis = 200, easing = LinearOutSlowInEasing)
-    val colorTweenSpec = tween<Color>(durationMillis = 400, easing = LinearOutSlowInEasing)
+    val colorTweenSpec = tween<Color>(durationMillis = 400, easing = FastOutSlowInEasing)
     val animationSpec = spring<IntSize>(Spring.DampingRatioMediumBouncy, Spring.StiffnessLow)
 
     val animatedColor by animateColorAsState(
