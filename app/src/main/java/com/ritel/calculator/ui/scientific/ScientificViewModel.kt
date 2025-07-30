@@ -1,8 +1,5 @@
 package com.ritel.calculator.ui.scientific
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.ritel.calculator.data.model.Alternate
 import com.ritel.calculator.data.model.Clear
@@ -16,6 +13,9 @@ import com.ritel.calculator.data.model.Operator
 import com.ritel.calculator.data.model.RightArrow
 import com.ritel.calculator.data.model.ScientificButton
 import com.ritel.calculator.data.model.ScientificFunction
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 data class ScientificUiState(
     val sequence: List<String> = emptyList(),
@@ -28,27 +28,19 @@ data class ScientificUiState(
 )
 
 class ScientificViewModel : ViewModel() {
-    var state by mutableStateOf(ScientificUiState())
-        private set
+    private val _state = MutableStateFlow(ScientificUiState())
+    val state: StateFlow<ScientificUiState> = _state.asStateFlow()
 
     private val evaluator = ExpressionEvaluator()
 
     //region Public API
 
     fun setCursorIndex(index: Int) {
-        state = state.copy(cursorIndex = index.coerceIn(0, state.sequence.size))
+        _state.value = _state.value.copy(cursorIndex = index.coerceIn(0, _state.value.sequence.size))
     }
 
     fun onPrevSeqClicked() {
         restorePrev()
-    }
-
-    fun getButtonEnabled(button: ScientificButton): Boolean {
-        return when (button) {
-            is Delete, is Clear -> return state.sequence.isNotEmpty() || state.prevSeq.isNotEmpty()
-            is Equals -> return state.sequence.isNotEmpty() && !state.resultMode
-            else -> true
-        }
     }
 
     fun onButtonClicked(button: ScientificButton) {
@@ -66,50 +58,50 @@ class ScientificViewModel : ViewModel() {
     //endregion
 
     private val cursorIndexMod: Int
-        get() = state.sequence.size + 1
+        get() = _state.value.sequence.size + 1
 
     private fun reset() {
-        state = ScientificUiState()
+        _state.value = ScientificUiState()
     }
 
     private fun restorePrev(toRight: Boolean = false) {
-        if (state.prevSeq.isEmpty()) return
+        if (_state.value.prevSeq.isEmpty()) return
 
-        state = state.copy(
-            sequence = state.prevSeq,
+        _state.value = _state.value.copy(
+            sequence = _state.value.prevSeq,
             prevSeq = emptyList(),
-            cursorIndex = if (toRight) state.prevSeq.size else 0,
+            cursorIndex = if (toRight) _state.value.prevSeq.size else 0,
             resultMode = false
         )
     }
 
     private fun handleAlternate() {
-        state = state.copy(altLayout = !state.altLayout)
+        _state.value = _state.value.copy(altLayout = !_state.value.altLayout)
     }
 
     private fun handleLeftArrow() {
-        if (state.resultMode) {
+        if (_state.value.resultMode) {
             restorePrev(true)
             return
         }
-        state =
-            state.copy(cursorIndex = ((state.cursorIndex - 1) + cursorIndexMod) % cursorIndexMod)
+        _state.value =
+            _state.value.copy(cursorIndex = ((_state.value.cursorIndex - 1) + cursorIndexMod) % cursorIndexMod)
     }
 
     private fun handleRightArrow() {
-        if (state.resultMode) {
+        if (_state.value.resultMode) {
             restorePrev()
             return
         }
-        state = state.copy(cursorIndex = (state.cursorIndex + 1) % cursorIndexMod)
+        _state.value = _state.value.copy(cursorIndex = (_state.value.cursorIndex + 1) % cursorIndexMod)
     }
 
     private fun handleNumericAndDot(symbol: String) {
-        if (state.resultMode) reset()
+        if (_state.value.resultMode) reset()
 
-        var leftIndex = state.cursorIndex - 1
+        var leftIndex = _state.value.cursorIndex - 1
 
-        val newSequence = state.sequence.toMutableList().apply {
+        val newSequence = _state.value.sequence.toMutableList().apply {
             val left = getOrNull(leftIndex)
 
             if (left?.toDoubleOrNull() != null) { // left is a number
@@ -120,29 +112,29 @@ class ScientificViewModel : ViewModel() {
             }
         }
 
-        state = state.copy(sequence = newSequence, cursorIndex = leftIndex + 1)
+        _state.value = _state.value.copy(sequence = newSequence, cursorIndex = leftIndex + 1)
     }
 
     private fun handleOperatorAndFunction(button: ScientificButton) {
-        val newSequence = state.sequence.toMutableList().apply {
-            add(state.cursorIndex, button.symbol)
+        val newSequence = _state.value.sequence.toMutableList().apply {
+            add(_state.value.cursorIndex, button.symbol)
         }
-        state = state.copy(
-            sequence = newSequence, cursorIndex = state.cursorIndex + 1, resultMode = false
+        _state.value = _state.value.copy(
+            sequence = newSequence, cursorIndex = _state.value.cursorIndex + 1, resultMode = false
         )
     }
 
     private fun handleDelete() {
-        if (state.resultMode) {
+        if (_state.value.resultMode) {
             restorePrev(true)
             return
         }
-        if (state.sequence.isEmpty()) return
+        if (_state.value.sequence.isEmpty()) return
 
-        var index = state.cursorIndex - 1
+        var index = _state.value.cursorIndex - 1
 
-        val newSequence = state.sequence.toMutableList().apply {
-            if (state.cursorIndex == 0) return@apply // no deletion at the beginning
+        val newSequence = _state.value.sequence.toMutableList().apply {
+            if (_state.value.cursorIndex == 0) return@apply // no deletion at the beginning
 
             val it = getOrNull(index)
 
@@ -158,24 +150,24 @@ class ScientificViewModel : ViewModel() {
             }
         }
 
-        state = state.copy(sequence = newSequence, cursorIndex = index)
+        _state.value = _state.value.copy(sequence = newSequence, cursorIndex = index)
     }
 
     private fun handleEquals() {
-        if (state.resultMode) return
+        if (_state.value.resultMode) return
 
-        val result = evaluator.evaluate(state.sequence)
+        val result = evaluator.evaluate(_state.value.sequence)
 
-        state = if (result.isSuccess) {
-            state.copy(
+        _state.value = if (result.isSuccess) {
+            _state.value.copy(
                 sequence = listOf(result.value?.toPlainString() ?: ""),
                 prevSeq = result.sequence,
                 cursorIndex = 1,
                 resultMode = true
             )
         } else {
-            state.copy(
-                cursorIndex = 0, errorTrigger = state.errorTrigger + 1
+            _state.value.copy(
+                cursorIndex = 0, errorTrigger = _state.value.errorTrigger + 1
             )
         }
     }

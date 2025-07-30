@@ -40,6 +40,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -61,12 +62,16 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ritel.calculator.data.layouts.ButtonGrid
 import com.ritel.calculator.data.layouts.SimpleLayout
 import com.ritel.calculator.data.model.Add
+import com.ritel.calculator.data.model.Delete
+import com.ritel.calculator.data.model.Dot
+import com.ritel.calculator.data.model.Equals
 import com.ritel.calculator.data.model.Operator
+import com.ritel.calculator.data.model.SimpleFunction
 import com.ritel.calculator.data.model.Subtract
 
 @Composable
 fun SimpleScreen(modifier: Modifier = Modifier, viewModel: SimpleViewModel = viewModel()) {
-    val uiState = viewModel.state
+    val uiState by viewModel.state.collectAsState()
     Column(
         modifier = modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -98,10 +103,16 @@ fun SimpleScreen(modifier: Modifier = Modifier, viewModel: SimpleViewModel = vie
             }
         )
         ButtonGrid(
-            buttonLayout = SimpleLayout,
-            getButtonEnabled = viewModel::getButtonEnabled,
-            modifier = Modifier.fillMaxWidth(),
-            onClick = viewModel::onButtonClicked
+            buttonLayout = SimpleLayout, getButtonEnabled = { button ->
+                when (button) {
+                    is Dot -> uiState.currentNumber?.contains('.') != true
+                    is Operator -> !uiState.isError
+                    is SimpleFunction -> uiState.currentNumber != null && !uiState.isError
+                    is Delete -> uiState.currentNumber != null || uiState.leftNumber != null
+                    is Equals -> !uiState.isError && !uiState.readOnly && uiState.leftNumber != null
+                    else -> true
+                }
+            }, modifier = Modifier.fillMaxWidth(), onClick = viewModel::onButtonClicked
         )
     }
 }

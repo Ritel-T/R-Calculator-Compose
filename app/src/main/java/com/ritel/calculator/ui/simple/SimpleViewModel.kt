@@ -1,8 +1,5 @@
 package com.ritel.calculator.ui.simple
 
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.ritel.calculator.data.model.Add
 import com.ritel.calculator.data.model.Clear
@@ -18,6 +15,9 @@ import com.ritel.calculator.data.model.PlusMinus
 import com.ritel.calculator.data.model.SimpleButton
 import com.ritel.calculator.data.model.SimpleFunction
 import com.ritel.calculator.data.model.Subtract
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import java.math.BigDecimal
 import java.math.MathContext
 
@@ -31,21 +31,10 @@ data class SimpleUiState(
 )
 
 class SimpleViewModel : ViewModel() {
-    var state by mutableStateOf(SimpleUiState())
-        private set
+    private val _state = MutableStateFlow(SimpleUiState())
+    val state: StateFlow<SimpleUiState> = _state.asStateFlow()
     private val errorText = "Error"
     private val mathContext = MathContext.DECIMAL128
-
-    fun getButtonEnabled(action: SimpleButton): Boolean {
-        return when (action) {
-            is Dot -> state.currentNumber?.contains('.') != true
-            is Operator -> !state.isError
-            is SimpleFunction -> state.currentNumber != null && !state.isError
-            is Delete -> state.currentNumber != null || state.leftNumber != null
-            is Equals -> !state.isError && !state.readOnly && state.leftNumber != null
-            else -> true
-        }
-    }
 
     fun onButtonClicked(button: SimpleButton) {
         when (button) {
@@ -60,69 +49,69 @@ class SimpleViewModel : ViewModel() {
     }
 
     private fun reset() {
-        state = SimpleUiState()
+        _state.value = SimpleUiState()
     }
 
     private fun enterDigit(symbol: String) {
-        if (state.readOnly) reset()
-        state = state.copy(
-            currentNumber = state.currentNumber?.takeIf { it != "0" }?.plus(symbol) ?: symbol
+        if (_state.value.readOnly) reset()
+        _state.value = _state.value.copy(
+            currentNumber = _state.value.currentNumber?.takeIf { it != "0" }?.plus(symbol) ?: symbol
         )
     }
 
     private fun enterDot() {
-        if (state.readOnly) reset()
-        state = state.copy(currentNumber = state.currentNumber.takeIf { it?.contains('.') == true }
-            ?: ((state.currentNumber ?: "0") + "."))
+        if (_state.value.readOnly) reset()
+        _state.value = _state.value.copy(currentNumber = _state.value.currentNumber.takeIf { it?.contains('.') == true }
+            ?: ((_state.value.currentNumber ?: "0") + "."))
     }
 
-    private fun handleOperator(action: Operator) {
-        if (state.isError) return
+    private fun handleOperator(button: Operator) {
+        if (_state.value.isError) return
 
-        if (state.readOnly) state = state.copy(readOnly = false)
+        if (_state.value.readOnly) _state.value = _state.value.copy(readOnly = false)
 
         val (newLeft, newCurrent, newOperator) = when {
-            state.leftNumber == null && state.currentNumber == null -> Triple(
-                "0", null, action
+            _state.value.leftNumber == null && _state.value.currentNumber == null -> Triple(
+                "0", null, button
             )
 
-            state.leftNumber == null -> Triple(
-                state.currentNumber, null, action
+            _state.value.leftNumber == null -> Triple(
+                _state.value.currentNumber, null, button
             )
 
-            state.currentNumber == null -> Triple(
-                state.leftNumber, null, action
+            _state.value.currentNumber == null -> Triple(
+                _state.value.leftNumber, null, button
             )
 
             else -> {
                 val result = calculate(
-                    state.leftNumber, state.currentNumber, state.operator
+                    _state.value.leftNumber, _state.value.currentNumber, _state.value.operator
                 )
                 if (result == errorText) {
-                    state = state.copy(isError = true, readOnly = true)
+                    _state.value = _state.value.copy(isError = true, readOnly = true)
                     Triple(
                         null, errorText, null
                     )
                 } else Triple(
-                    result, null, action
+                    result, null, button
                 )
             }
         }
 
-        state = state.copy(
+        _state.value = _state.value.copy(
             leftNumber = newLeft,
             currentNumber = newCurrent,
             operator = newOperator,
-            operatorTrigger = state.operatorTrigger + 1
+            operatorTrigger = _state.value.operatorTrigger + 1
         )
     }
 
-    private fun handleFunction(action: SimpleFunction) {
-        when (action) {
+    private fun handleFunction(button: SimpleFunction) {
+        when (button) {
             is PlusMinus -> {
-                state.currentNumber?.let {
+                _state.value.currentNumber?.let {
                     if (it != "0") {
-                        state = state.copy(
+                        _state.value = _state.value.copy(
                             currentNumber = if (it.startsWith("-")) {
                             it.removePrefix("-").ifEmpty { null }
                         } else {
@@ -133,8 +122,8 @@ class SimpleViewModel : ViewModel() {
             }
 
             is Percent -> {
-                state = state.copy(
-                    currentNumber = state.currentNumber?.toBigDecimalOrNull()?.divide(
+                _state.value = _state.value.copy(
+                    currentNumber = _state.value.currentNumber?.toBigDecimalOrNull()?.divide(
                         BigDecimal.valueOf(100), mathContext
                     )?.stripTrailingZeros()?.toString()
                 )
@@ -144,24 +133,24 @@ class SimpleViewModel : ViewModel() {
 
     private fun handleDelete() {
         when {
-            state.readOnly || state.isError -> reset()
+            _state.value.readOnly || _state.value.isError -> reset()
 
-            state.currentNumber == null -> {
-                state = state.copy(
-                    operator = null, currentNumber = state.leftNumber, leftNumber = null
+            _state.value.currentNumber == null -> {
+                _state.value = _state.value.copy(
+                    operator = null, currentNumber = _state.value.leftNumber, leftNumber = null
                 )
             }
 
-            else -> state = state.copy(
-                currentNumber = state.currentNumber!!.dropLast(1).ifEmpty { null })
+            else -> _state.value = _state.value.copy(
+                currentNumber = _state.value.currentNumber!!.dropLast(1).ifEmpty { null })
         }
     }
 
     private fun handleEquals() {
-        val result = calculate(state.leftNumber, state.currentNumber, state.operator)
-        if (result == errorText) state = state.copy(isError = true)
+        val result = calculate(_state.value.leftNumber, _state.value.currentNumber, _state.value.operator)
+        if (result == errorText) _state.value = _state.value.copy(isError = true)
 
-        state = state.copy(
+        _state.value = _state.value.copy(
             currentNumber = result, leftNumber = null, operator = null, readOnly = true
         )
     }

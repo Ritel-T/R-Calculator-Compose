@@ -32,6 +32,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -47,11 +48,14 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ritel.calculator.data.layouts.ButtonGrid
 import com.ritel.calculator.data.layouts.ScientificLayoutAlternative
 import com.ritel.calculator.data.layouts.ScientificLayoutDefault
+import com.ritel.calculator.data.model.Clear
+import com.ritel.calculator.data.model.Delete
+import com.ritel.calculator.data.model.Equals
 import com.ritel.calculator.ui.theme.JetBrainsMono
 
 @Composable
 fun ScientificScreen(modifier: Modifier = Modifier, viewModel: ScientificViewModel = viewModel()) {
-    val uiState = viewModel.state
+    val uiState by viewModel.state.collectAsState()
     Column(
         modifier = modifier.fillMaxSize(),
         horizontalAlignment = Alignment.End,
@@ -77,11 +81,17 @@ fun ScientificScreen(modifier: Modifier = Modifier, viewModel: ScientificViewMod
                 .height(48.dp)
         )
         ButtonGrid(
-            buttonLayout = if (uiState.altLayout) ScientificLayoutAlternative
-            else ScientificLayoutDefault,
-            getButtonEnabled = viewModel::getButtonEnabled,
-            modifier = Modifier.fillMaxWidth(),
-            onClick = viewModel::onButtonClicked
+            buttonLayout = if (uiState.altLayout) {
+                ScientificLayoutAlternative
+            } else {
+                ScientificLayoutDefault
+            }, getButtonEnabled = { button ->
+                when (button) {
+                    Delete, Clear -> uiState.sequence.isNotEmpty() || uiState.prevSeq.isNotEmpty()
+                    Equals -> uiState.sequence.isNotEmpty() && !uiState.resultMode
+                    else -> true
+                }
+            }, modifier = Modifier.fillMaxWidth(), onClick = viewModel::onButtonClicked
         )
     }
 }
@@ -254,9 +264,7 @@ fun SequenceWithCursorDisplay(
 
     val infiniteTransition = rememberInfiniteTransition(label = "cursorBlink")
     val cursorAlpha by infiniteTransition.animateFloat(
-        initialValue = 1f,
-        targetValue = 0f,
-        animationSpec = infiniteRepeatable(
+        initialValue = 1f, targetValue = 0f, animationSpec = infiniteRepeatable(
             animation = tween(durationMillis = 600, easing = FastOutLinearInEasing),
             repeatMode = androidx.compose.animation.core.RepeatMode.Reverse
         ), label = "cursorAlpha"

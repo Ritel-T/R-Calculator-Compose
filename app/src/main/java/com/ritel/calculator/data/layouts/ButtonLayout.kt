@@ -67,7 +67,7 @@ import com.ritel.calculator.ui.components.MorphButton
 import com.ritel.calculator.ui.components.getButtonStyle
 
 sealed class ButtonLayout<T : CalculatorButton>(
-    val rows: Int, val cols: Int, val layout: List<List<T>>
+    @Suppress("unused") val rows: Int, val cols: Int, val layout: List<List<T>>
 )
 
 object SimpleLayout : ButtonLayout<SimpleButton>(
