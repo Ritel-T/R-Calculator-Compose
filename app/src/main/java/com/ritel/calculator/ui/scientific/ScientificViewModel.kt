@@ -1,6 +1,7 @@
 package com.ritel.calculator.ui.scientific
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.ritel.calculator.data.model.Alternate
 import com.ritel.calculator.data.model.Clear
 import com.ritel.calculator.data.model.Delete
@@ -13,9 +14,12 @@ import com.ritel.calculator.data.model.Operator
 import com.ritel.calculator.data.model.RightArrow
 import com.ritel.calculator.data.model.ScientificButton
 import com.ritel.calculator.data.model.ScientificFunction
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 data class ScientificUiState(
     val sequence: List<String> = emptyList(),
@@ -23,20 +27,23 @@ data class ScientificUiState(
     val altLayout: Boolean = false,
     val cursorIndex: Int = 0, // 0 at beginning, lastIndex+1 (=size) after first token
     val selectedIndex: Int? = null, // starts from 0, null if no selection
-    val resultMode: Boolean = false,
-    val errorTrigger: Int = 0
+    val resultMode: Boolean = false
 )
 
 class ScientificViewModel : ViewModel() {
     private val _state = MutableStateFlow(ScientificUiState())
     val state: StateFlow<ScientificUiState> = _state.asStateFlow()
 
+    private val _errorTrigger = MutableSharedFlow<Long>()
+    val errorTrigger = _errorTrigger.asSharedFlow()
+
     private val evaluator = ExpressionEvaluator()
 
     //region Public API
 
     fun setCursorIndex(index: Int) {
-        _state.value = _state.value.copy(cursorIndex = index.coerceIn(0, _state.value.sequence.size))
+        _state.value =
+            _state.value.copy(cursorIndex = index.coerceIn(0, _state.value.sequence.size))
     }
 
     fun onPrevSeqClicked() {
@@ -93,7 +100,8 @@ class ScientificViewModel : ViewModel() {
             restorePrev()
             return
         }
-        _state.value = _state.value.copy(cursorIndex = (_state.value.cursorIndex + 1) % cursorIndexMod)
+        _state.value =
+            _state.value.copy(cursorIndex = (_state.value.cursorIndex + 1) % cursorIndexMod)
     }
 
     private fun handleNumericAndDot(symbol: String) {
@@ -166,9 +174,14 @@ class ScientificViewModel : ViewModel() {
                 resultMode = true
             )
         } else {
-            _state.value.copy(
-                cursorIndex = 0, errorTrigger = _state.value.errorTrigger + 1
-            )
+            triggerError()
+            _state.value.copy(cursorIndex = 0)
+        }
+    }
+
+    private fun triggerError() {
+        viewModelScope.launch {
+            _errorTrigger.emit(System.currentTimeMillis())
         }
     }
 }

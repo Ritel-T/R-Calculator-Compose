@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.ritel.calculator.data.layouts.ButtonGrid
 import com.ritel.calculator.data.layouts.ScientificLayoutAlternative
@@ -56,6 +57,7 @@ import com.ritel.calculator.ui.theme.JetBrainsMono
 @Composable
 fun ScientificScreen(modifier: Modifier = Modifier, viewModel: ScientificViewModel = viewModel()) {
     val uiState by viewModel.state.collectAsState()
+    val errorTrigger by viewModel.errorTrigger.collectAsStateWithLifecycle(null)
     Column(
         modifier = modifier.fillMaxSize(),
         horizontalAlignment = Alignment.End,
@@ -73,7 +75,7 @@ fun ScientificScreen(modifier: Modifier = Modifier, viewModel: ScientificViewMod
             cursorIndex = uiState.cursorIndex,
             setCursorIndex = viewModel::setCursorIndex,
             resultMode = uiState.resultMode,
-            errorTrigger = uiState.errorTrigger,
+            errorTrigger = errorTrigger,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp)
@@ -147,22 +149,17 @@ fun ScientificInputField(
     cursorIndex: Int,
     setCursorIndex: (Int) -> Unit,
     resultMode: Boolean,
-    errorTrigger: Int,
+    errorTrigger: Long?,
     modifier: Modifier = Modifier,
 ) {
     val fontSize = 32.sp
 
     val offsetX = remember { Animatable(0f) }
 
-    val color = if (resultMode) {
-        MaterialTheme.colorScheme.secondary
+    val (color, contentColor) = if (resultMode) {
+        MaterialTheme.colorScheme.secondary to MaterialTheme.colorScheme.onSecondary
     } else {
-        MaterialTheme.colorScheme.primaryContainer
-    }
-    val contentColor = if (resultMode) {
-        MaterialTheme.colorScheme.onSecondary
-    } else {
-        MaterialTheme.colorScheme.onPrimaryContainer
+        MaterialTheme.colorScheme.primaryContainer to MaterialTheme.colorScheme.onPrimaryContainer
     }
 
     val colorTweenSpec = tween<Color>(durationMillis = 400, easing = FastOutSlowInEasing)
@@ -174,17 +171,18 @@ fun ScientificInputField(
         targetValue = contentColor, animationSpec = colorTweenSpec
     )
 
-
     LaunchedEffect(errorTrigger) {
-        offsetX.animateTo(
-            targetValue = 10f,
-            animationSpec = tween(durationMillis = 50, easing = FastOutLinearInEasing)
-        )
-        offsetX.animateTo(
-            targetValue = 0f, animationSpec = spring(
-                dampingRatio = 0.1f, stiffness = Spring.StiffnessHigh
+        if (errorTrigger != null) {
+            offsetX.animateTo(
+                targetValue = 10f,
+                animationSpec = tween(durationMillis = 50, easing = FastOutLinearInEasing)
             )
-        )
+            offsetX.animateTo(
+                targetValue = 0f, animationSpec = spring(
+                    dampingRatio = 0.1f, stiffness = Spring.StiffnessHigh
+                )
+            )
+        }
     }
 
     Surface(
@@ -216,7 +214,7 @@ fun ScientificInputFieldPreview() {
         cursorIndex = 1,
         setCursorIndex = {},
         resultMode = false,
-        errorTrigger = 0,
+        errorTrigger = null,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp)
