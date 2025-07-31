@@ -77,9 +77,9 @@ class ScientificViewModel : ViewModel() {
         _state.value = _state.value.copy(
             sequence = _state.value.prevSeq,
             prevSeq = emptyList(),
-            cursorIndex = if (toRight) _state.value.prevSeq.size else 0,
             resultMode = false
         )
+        setCursorIndex(if (toRight) _state.value.sequence.size else 0)
     }
 
     private fun handleAlternate() {
@@ -91,8 +91,7 @@ class ScientificViewModel : ViewModel() {
             restorePrev(true)
             return
         }
-        _state.value =
-            _state.value.copy(cursorIndex = ((_state.value.cursorIndex - 1) + cursorIndexMod) % cursorIndexMod)
+        setCursorIndex(((_state.value.cursorIndex - 1) + cursorIndexMod) % cursorIndexMod)
     }
 
     private fun handleRightArrow() {
@@ -100,8 +99,7 @@ class ScientificViewModel : ViewModel() {
             restorePrev()
             return
         }
-        _state.value =
-            _state.value.copy(cursorIndex = (_state.value.cursorIndex + 1) % cursorIndexMod)
+        setCursorIndex((_state.value.cursorIndex + 1) % cursorIndexMod)
     }
 
     private fun handleNumericAndDot(symbol: String) {
@@ -120,16 +118,19 @@ class ScientificViewModel : ViewModel() {
             }
         }
 
-        _state.value = _state.value.copy(sequence = newSequence, cursorIndex = leftIndex + 1)
+        _state.value = _state.value.copy(sequence = newSequence)
+        setCursorIndex(leftIndex + 1)
     }
 
     private fun handleOperatorAndFunction(button: ScientificButton) {
+        val index = _state.value.cursorIndex
         val newSequence = _state.value.sequence.toMutableList().apply {
-            add(_state.value.cursorIndex, button.symbol)
+            add(index, button.symbol)
         }
         _state.value = _state.value.copy(
-            sequence = newSequence, cursorIndex = _state.value.cursorIndex + 1, resultMode = false
+            sequence = newSequence, resultMode = false
         )
+        setCursorIndex(index + 1)
     }
 
     private fun handleDelete() {
@@ -158,7 +159,8 @@ class ScientificViewModel : ViewModel() {
             }
         }
 
-        _state.value = _state.value.copy(sequence = newSequence, cursorIndex = index)
+        _state.value = _state.value.copy(sequence = newSequence)
+        setCursorIndex(index)
     }
 
     private fun handleEquals() {
@@ -166,16 +168,16 @@ class ScientificViewModel : ViewModel() {
 
         val result = evaluator.evaluate(_state.value.sequence)
 
-        _state.value = if (result.isSuccess) {
-            _state.value.copy(
+        if (result.isSuccess) {
+            _state.value = _state.value.copy(
                 sequence = listOf(result.value?.toPlainString() ?: ""),
                 prevSeq = result.sequence,
-                cursorIndex = 1,
                 resultMode = true
             )
+            setCursorIndex(1)
         } else {
             triggerError()
-            _state.value.copy(cursorIndex = 0)
+            setCursorIndex(0)
         }
     }
 
